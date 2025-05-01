@@ -94,6 +94,19 @@ class RedmineService
     }
 
     /**
+     * Get progress rate statistics
+     * 
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array
+     */
+    public function getProgressRateStats($startDate, $endDate, $projectId = null)
+    {
+        return $this->getMockProgressRateStats($startDate, $endDate);
+    }
+
+    /**
      * Generate mock daily statistics for prototype
      *
      * @param string $startDate
@@ -141,5 +154,50 @@ class RedmineService
         }
 
         return $monthlyStats;
+    }
+
+    /**
+     * Generate mock progress rate statistics for prototype
+     * 
+     * @param string $startDate
+     * @param string $endDate
+     * @return array
+     */
+    private function getMockProgressRateStats($startDate, $endDate)
+    {
+        $progressStats = [];
+        $startCarbon = Carbon::parse($startDate);
+        $endCarbon = Carbon::parse($endDate);
+        
+        for ($date = $startCarbon; $date->lte($endCarbon); $date->addWeek()) {
+            $weekStr = $date->format('Y-m-d');
+            
+            $estimatedHours = rand(40, 100);
+            $spentHours = rand(20, $estimatedHours);
+            $progressPercent = round(($spentHours / $estimatedHours) * 100);
+            
+            $totalDays = rand(10, 30);
+            $elapsedDays = rand(1, $totalDays);
+            $timeProgressPercent = round(($elapsedDays / $totalDays) * 100);
+            
+            $totalPoints = rand(20, 50);
+            $completedPoints = rand(0, $totalPoints);
+            $pointsProgressPercent = round(($completedPoints / $totalPoints) * 100);
+            
+            $progressStats[] = [
+                'date' => $weekStr,
+                'estimated_hours' => $estimatedHours,
+                'spent_hours' => $spentHours,
+                'hours_progress' => $progressPercent,
+                'total_days' => $totalDays,
+                'elapsed_days' => $elapsedDays,
+                'time_progress' => $timeProgressPercent,
+                'total_points' => $totalPoints,
+                'completed_points' => $completedPoints,
+                'points_progress' => $pointsProgressPercent
+            ];
+        }
+        
+        return $progressStats;
     }
 }

@@ -26,6 +26,16 @@ class RedmineController extends Controller
     }
 
     /**
+     * Display the progress rate page
+     *
+     * @return \Illuminate\View\View
+     */
+    public function progressRate()
+    {
+        return view('redmine.progress_rate');
+    }
+
+    /**
      * Get daily statistics
      *
      * @param Request $request
@@ -55,6 +65,23 @@ class RedmineController extends Controller
         $projectId = $request->input('project_id');
 
         $stats = $this->redmineService->getMonthlyStats($startDate, $endDate, $projectId);
+
+        return response()->json($stats);
+    }
+
+    /**
+     * Get progress rate statistics
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getProgressRateStats(Request $request)
+    {
+        $startDate = $request->input('start_date', Carbon::now()->subMonths(3)->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+        $projectId = $request->input('project_id');
+
+        $stats = $this->redmineService->getProgressRateStats($startDate, $endDate, $projectId);
 
         return response()->json($stats);
     }
