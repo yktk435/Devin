@@ -1,4 +1,4 @@
-FROM php:8.1-fpm
+FROM --platform=linux/arm64 php:8.1-fpm
 
 # Set working directory
 WORKDIR /var/www/html
@@ -24,7 +24,9 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install extensions
-RUN docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath gd xml
+RUN docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath xml
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-install -j$(nproc) gd
 
 # Install composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -32,10 +34,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Add user for laravel application
 RUN groupadd -g 1000 www
 RUN useradd -u 1000 -ms /bin/bash -g www www
-
-# Copy application files
-COPY . /var/www/html
-COPY .env.example .env
 
 # Copy existing permissions from host directories to container directories
 COPY --chown=www:www . /var/www/html
@@ -46,8 +44,11 @@ RUN chown -R www:www /var/www/html
 # Change current user to www
 USER www
 
+# Generate .env file if it doesn't exist
+RUN if [ ! -f .env ]; then cp .env.example .env; fi
+
 # Install composer dependencies
-RUN composer install
+RUN composer install --no-scripts
 
 # Generate application key
 RUN php artisan key:generate

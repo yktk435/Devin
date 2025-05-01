@@ -6,8 +6,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - PLATFORM=linux/arm64
     image: redmine-progress-tracker
     container_name: redmine-app
+    platform: linux/arm64
     restart: unless-stopped
     tty: true
     environment:
@@ -22,7 +25,8 @@ services:
 
   # Nginx Service
   webserver:
-    image: nginx:alpine
+    image: nginx:alpine3.17
+    platform: linux/arm64
     container_name: redmine-webserver
     restart: unless-stopped
     tty: true
@@ -36,7 +40,8 @@ services:
 
   # MySQL Service
   db:
-    image: mysql:5.7
+    image: mariadb:10.6
+    platform: linux/arm64
     container_name: redmine-db
     restart: unless-stopped
     tty: true
