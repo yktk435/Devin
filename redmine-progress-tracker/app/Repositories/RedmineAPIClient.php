@@ -222,24 +222,120 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      */
     public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null)
     {
-        $params = [
-            'status_id' => '*',
-            'created_on' => urlencode('><') . $startDate . '|' . $endDate,
-            'include' => 'time_entries',
+        $timeEntriesParams = [
+            'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
             'limit' => 100
         ];
         
         if ($projectId) {
-            $params['project_id'] = $projectId;
+            $timeEntriesParams['project_id'] = $projectId;
         }
         
-        $response = $this->makeApiRequest('/issues.json', $params);
+        $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
         
-        if (!$response || !isset($response['issues'])) {
+        if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries']) || empty($timeEntriesResponse['time_entries'])) {
+            Log::warning('No time entries found for the specified date range');
             return null;
         }
         
+        $userTimeEntries = [];
+        $issueIds = [];
         
-        return null;
+        foreach ($timeEntriesResponse['time_entries'] as $entry) {
+            $userId = $entry['user']['id'];
+            $userName = $entry['user']['name'];
+            $issueId = $entry['issue']['id'];
+            $hours = $entry['hours'];
+            
+            if (!isset($userTimeEntries[$userId])) {
+                $userTimeEntries[$userId] = [
+                    'user_id' => $userId,
+                    'user_name' => $userName,
+                    'working_hours' => 0,
+                    'issues' => []
+                ];
+            }
+            
+            $userTimeEntries[$userId]['working_hours'] += $hours;
+            
+            if (!isset($userTimeEntries[$userId]['issues'][$issueId])) {
+                $userTimeEntries[$userId]['issues'][$issueId] = [
+                    'spent_hours' => 0
+                ];
+            }
+            
+            $userTimeEntries[$userId]['issues'][$issueId]['spent_hours'] += $hours;
+            $issueIds[] = $issueId;
+        }
+        
+        $uniqueIssueIds = array_unique($issueIds);
+        $issueDetails = [];
+        
+        $issueBatches = array_chunk($uniqueIssueIds, 20);
+        
+        foreach ($issueBatches as $batch) {
+            $issuesParams = [
+                'issue_id' => implode(',', $batch),
+                'status_id' => '*',
+                'include' => 'relations'
+            ];
+            
+            $issuesResponse = $this->makeApiRequest('/issues.json', $issuesParams);
+            
+            if ($issuesResponse && isset($issuesResponse['issues'])) {
+                foreach ($issuesResponse['issues'] as $issue) {
+                    $issueDetails[$issue['id']] = [
+                        'id' => $issue['id'],
+                        'subject' => $issue['subject'],
+                        'status' => $issue['status']['name'],
+                        'is_completed' => ($issue['status']['name'] === 'Closed' || $issue['status']['name'] === '完了'),
+                        'estimated_hours' => isset($issue['estimated_hours']) ? $issue['estimated_hours'] : 0
+                    ];
+                }
+            }
+        }
+        
+        $consumptionStats = [];
+        
+        foreach ($userTimeEntries as $userId => $userData) {
+            $totalTickets = 0;
+            $completedTickets = 0;
+            $consumedTickets = 0;
+            $consumedEstimatedHours = 0;
+            
+            foreach ($userData['issues'] as $issueId => $issueData) {
+                if (isset($issueDetails[$issueId])) {
+                    $totalTickets++;
+                    $issue = $issueDetails[$issueId];
+                    
+                    if ($issue['is_completed']) {
+                        $completedTickets++;
+                        
+                        if ($issue['estimated_hours'] > 0 && $issueData['spent_hours'] <= $issue['estimated_hours']) {
+                            $consumedTickets++;
+                            $consumedEstimatedHours += $issue['estimated_hours'];
+                        }
+                    }
+                }
+            }
+            
+            $workingHours = $userData['working_hours'];
+            $achievementRate = ($workingHours > 0) ? round(($consumedEstimatedHours / $workingHours) * 100) : 0;
+            $ticketConsumptionRate = ($totalTickets > 0) ? round(($consumedTickets / $totalTickets) * 100) : 0;
+            
+            $consumptionStats[] = [
+                'user_id' => $userData['user_id'],
+                'user_name' => $userData['user_name'],
+                'consumed_estimated_hours' => $consumedEstimatedHours, // 消化時間（消化したチケットの予定工数）
+                'working_hours' => $workingHours, // 稼働時間
+                'achievement_rate' => $achievementRate, // 達成率
+                'total_tickets' => $totalTickets, // 総チケット数
+                'completed_tickets' => $completedTickets, // 完了チケット数
+                'consumed_tickets' => $consumedTickets, // 消化チケット数（完了かつ予定工数以内）
+                'ticket_consumption_rate' => $ticketConsumptionRate // チケット消化率
+            ];
+        }
+        
+        return $consumptionStats;
     }
 }
