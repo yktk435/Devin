@@ -85,7 +85,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     {
         $params = [
             'status_id' => '*',
-            'created_on' => '>=' . $startDate . '|<=' . $endDate,
+            'created_on' => '><' . $startDate . '|' . $endDate,
             'limit' => 100
         ];
         
@@ -139,7 +139,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     {
         $params = [
             'status_id' => '*',
-            'created_on' => '>=' . $startDate . '|<=' . $endDate,
+            'created_on' => '><' . $startDate . '|' . $endDate,
             'limit' => 100
         ];
         
@@ -193,7 +193,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     {
         $params = [
             'status_id' => '*',
-            'created_on' => '>=' . $startDate . '|<=' . $endDate,
+            'created_on' => '><' . $startDate . '|' . $endDate,
             'include' => 'journals',
             'limit' => 100
         ];
@@ -224,7 +224,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     {
         $params = [
             'status_id' => '*',
-            'created_on' => '>=' . $startDate . '|<=' . $endDate,
+            'created_on' => '><' . $startDate . '|' . $endDate,
             'include' => 'time_entries',
             'limit' => 100
         ];
