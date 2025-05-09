@@ -127,4 +127,14 @@ class RedmineService
     {
         return $this->redmineClient->getIndividualConsumptionStats($startDate, $endDate, $projectId);
     }
+    
+    /**
+     * Get available projects
+     * 
+     * @return array
+     */
+    public function getProjects()
+    {
+        return $this->redmineClient->getProjects();
+    }
 }

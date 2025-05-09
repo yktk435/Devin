@@ -22,7 +22,8 @@ class RedmineController extends Controller
      */
     public function dashboard()
     {
-        return view('redmine.dashboard');
+        $projects = $this->redmineService->getProjects();
+        return view('redmine.dashboard', compact('projects'));
     }
 
     /**
@@ -32,7 +33,8 @@ class RedmineController extends Controller
      */
     public function progressRate()
     {
-        return view('redmine.progress_rate');
+        $projects = $this->redmineService->getProjects();
+        return view('redmine.progress_rate', compact('projects'));
     }
 
     /**
@@ -93,7 +95,8 @@ class RedmineController extends Controller
      */
     public function individualConsumption()
     {
-        return view('redmine.individual_consumption');
+        $projects = $this->redmineService->getProjects();
+        return view('redmine.individual_consumption', compact('projects'));
     }
     
     /**

@@ -338,4 +338,36 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         
         return $consumptionStats;
     }
+    
+    /**
+     * Get available projects from Redmine API
+     * 
+     * @return array|null
+     */
+    public function getProjects()
+    {
+        $params = [
+            'limit' => 100
+        ];
+        
+        $response = $this->makeApiRequest('/projects.json', $params);
+        
+        if (!$response || !isset($response['projects'])) {
+            Log::warning('Failed to retrieve projects from Redmine API');
+            return null;
+        }
+        
+        $projects = [];
+        
+        foreach ($response['projects'] as $project) {
+            $projects[] = [
+                'id' => $project['id'],
+                'name' => $project['name'],
+                'identifier' => $project['identifier'],
+                'description' => isset($project['description']) ? $project['description'] : ''
+            ];
+        }
+        
+        return $projects;
+    }
 }

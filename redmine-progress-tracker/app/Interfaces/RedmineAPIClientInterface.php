@@ -43,4 +43,11 @@ interface RedmineAPIClientInterface
      * @return array
      */
     public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null);
+    
+    /**
+     * Get available projects
+     * 
+     * @return array
+     */
+    public function getProjects();
 }

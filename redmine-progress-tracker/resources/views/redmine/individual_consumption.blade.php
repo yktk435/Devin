@@ -118,7 +118,9 @@
                             <label for="project-id" class="form-label">プロジェクト</label>
                             <select id="project-id" class="form-select">
                                 <option value="">すべて</option>
-                                <!-- プロジェクトリストはAPIから取得して動的に追加 -->
+                                @foreach($projects as $project)
+                                    <option value="{{ $project['id'] }}">{{ $project['name'] }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">

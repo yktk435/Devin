@@ -207,4 +207,45 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
         
         return $consumptionStats;
     }
+    
+    /**
+     * Get available projects
+     * 
+     * @return array
+     */
+    public function getProjects()
+    {
+        return [
+            [
+                'id' => 1,
+                'name' => '開発プロジェクトA',
+                'identifier' => 'dev-project-a',
+                'description' => '主要開発プロジェクト'
+            ],
+            [
+                'id' => 2,
+                'name' => '保守プロジェクトB',
+                'identifier' => 'maintenance-b',
+                'description' => 'システム保守プロジェクト'
+            ],
+            [
+                'id' => 3,
+                'name' => '新規開発C',
+                'identifier' => 'new-dev-c',
+                'description' => '新規機能開発プロジェクト'
+            ],
+            [
+                'id' => 4,
+                'name' => 'バグ修正D',
+                'identifier' => 'bugfix-d',
+                'description' => 'バグ修正プロジェクト'
+            ],
+            [
+                'id' => 5,
+                'name' => 'リファクタリングE',
+                'identifier' => 'refactor-e',
+                'description' => 'コードリファクタリングプロジェクト'
+            ]
+        ];
+    }
 }
