@@ -105,6 +105,19 @@ class RedmineService
     {
         return $this->getMockProgressRateStats($startDate, $endDate);
     }
+    
+    /**
+     * Get individual consumption rate statistics
+     * 
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array
+     */
+    public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null)
+    {
+        return $this->getMockIndividualConsumptionStats($startDate, $endDate);
+    }
 
     /**
      * Generate mock daily statistics for prototype
@@ -199,5 +212,51 @@ class RedmineService
         }
         
         return $progressStats;
+    }
+    
+    /**
+     * Generate mock individual consumption rate statistics for prototype
+     * 
+     * @param string $startDate
+     * @param string $endDate
+     * @return array
+     */
+    private function getMockIndividualConsumptionStats($startDate, $endDate)
+    {
+        $users = [
+            ['id' => 1, 'name' => '山田太郎'],
+            ['id' => 2, 'name' => '佐藤花子'],
+            ['id' => 3, 'name' => '鈴木一郎'],
+            ['id' => 4, 'name' => '田中美咲'],
+            ['id' => 5, 'name' => '伊藤健太']
+        ];
+        
+        $consumptionStats = [];
+        
+        foreach ($users as $user) {
+            $consumedEstimatedHours = rand(20, 80);
+            
+            $workingHours = rand($consumedEstimatedHours, 100);
+            
+            $achievementRate = round(($consumedEstimatedHours / $workingHours) * 100);
+            
+            $totalTickets = rand(10, 30);
+            $completedTickets = rand(5, $totalTickets);
+            $consumedTickets = rand(0, $completedTickets); // 消化したチケット（完了かつ予定工数以内）
+            
+            $consumptionStats[] = [
+                'user_id' => $user['id'],
+                'user_name' => $user['name'],
+                'consumed_estimated_hours' => $consumedEstimatedHours, // 消化時間（消化したチケットの予定工数）
+                'working_hours' => $workingHours, // 稼働時間
+                'achievement_rate' => $achievementRate, // 達成率
+                'total_tickets' => $totalTickets, // 総チケット数
+                'completed_tickets' => $completedTickets, // 完了チケット数
+                'consumed_tickets' => $consumedTickets, // 消化チケット数（完了かつ予定工数以内）
+                'ticket_consumption_rate' => round(($consumedTickets / $totalTickets) * 100) // チケット消化率
+            ];
+        }
+        
+        return $consumptionStats;
     }
 }

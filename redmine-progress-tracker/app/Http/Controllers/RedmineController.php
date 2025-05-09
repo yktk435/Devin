@@ -85,4 +85,31 @@ class RedmineController extends Controller
 
         return response()->json($stats);
     }
+    
+    /**
+     * Display the individual consumption rate page
+     *
+     * @return \Illuminate\View\View
+     */
+    public function individualConsumption()
+    {
+        return view('redmine.individual_consumption');
+    }
+    
+    /**
+     * Get individual consumption rate statistics
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getIndividualConsumptionStats(Request $request)
+    {
+        $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+        $projectId = $request->input('project_id');
+
+        $stats = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate, $projectId);
+
+        return response()->json($stats);
+    }
 }

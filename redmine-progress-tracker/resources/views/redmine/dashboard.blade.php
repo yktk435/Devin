@@ -60,6 +60,11 @@
                             <i class="bi bi-graph-up me-2"></i>進捗率
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('individual-consumption') }}">
+                            <i class="bi bi-person-fill me-2"></i>個人別消化率
+                        </a>
+                    </li>
                 </ul>
             </div>
 
