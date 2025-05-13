@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redmine 工数進捗率レポート - 個人別チケット消化率</title>
+    <title>Redmine 工数進捗率レポート - 個人別チケット進捗率</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -94,7 +94,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="{{ route('individual-consumption') }}">
-                            <i class="bi bi-person-fill me-2"></i>個人別消化率
+                            <i class="bi bi-person-fill me-2"></i>個人別進捗率
                         </a>
                     </li>
                 </ul>
@@ -102,7 +102,7 @@
 
             <!-- Main Content -->
             <div class="col-md-10 main-content">
-                <h1 class="mb-4">Redmine 工数進捗率レポート - 個人別チケット消化率</h1>
+                <h1 class="mb-4">Redmine 工数進捗率レポート - 個人別チケット進捗率</h1>
                 
                 <!-- フラッシュメッセージ -->
                 <div id="flash-message" class="alert d-none mb-3" role="alert"></div>
@@ -193,7 +193,7 @@
     </div>
 
     <script>
-        let achievementChart = null;
+        let progressChart = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('update-btn').addEventListener('click', function() {
@@ -202,7 +202,7 @@
 
             @if(isset($initialData) && !empty($initialData))
                 const initialData = @json($initialData);
-                updateAchievementChart(initialData);
+                updateProgressChart(initialData);
                 updateUserCards(initialData);
                 updateStatsTable(initialData);
             @else
@@ -240,13 +240,13 @@
                     } else {
                         showFlashMessage('success', 'データを正常に取得しました');
                         
-                        updateAchievementChart(data);
+                        updateProgressChart(data);
                         updateUserCards(data);
                         updateStatsTable(data);
                     }
                 })
                 .catch(error => {
-                    console.error('個人別消化率データ取得エラー:', error);
+                    console.error('個人別進捗率データ取得エラー:', error);
                     showFlashMessage('danger', error.message || 'データの取得中にエラーが発生しました');
                 })
                 .finally(() => {
@@ -268,32 +268,32 @@
             }, 5000);
         }
 
-        function updateAchievementChart(data) {
-            const ctx = document.getElementById('achievement-chart').getContext('2d');
+        function updateProgressChart(data) {
+            const ctx = document.getElementById('progress-chart').getContext('2d');
             
             const labels = data.map(item => item.user_name);
-            const achievementRates = data.map(item => item.achievement_rate);
-            const consumptionRates = data.map(item => item.ticket_consumption_rate);
+            const progressRates = data.map(item => item.progress_rate);
+            const completionRates = data.map(item => item.ticket_completion_rate);
 
-            if (achievementChart) {
-                achievementChart.destroy();
+            if (progressChart) {
+                progressChart.destroy();
             }
 
-            achievementChart = new Chart(ctx, {
+            progressChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
                         {
-                            label: '達成率（消化時間/稼働時間）',
-                            data: achievementRates,
+                            label: '進捗率（消化時間/稼働時間）',
+                            data: progressRates,
                             backgroundColor: 'rgba(40, 167, 69, 0.7)',
                             borderColor: 'rgba(40, 167, 69, 1)',
                             borderWidth: 1
                         },
                         {
-                            label: 'チケット消化率（消化チケット/総チケット）',
-                            data: consumptionRates,
+                            label: 'チケット完了率（完了チケット/総チケット）',
+                            data: completionRates,
                             backgroundColor: 'rgba(0, 123, 255, 0.7)',
                             borderColor: 'rgba(0, 123, 255, 1)',
                             borderWidth: 1
@@ -352,7 +352,7 @@
                                 <div class="col-md-6">
                                     <p class="mb-1">消化時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">稼働時間: ${parseFloat(user.working_hours).toFixed(2)}時間</p>
-                                    <p class="mb-1">消化チケット: ${user.consumed_tickets}/${user.total_tickets}</p>
+                                    <p class="mb-1">完了チケット: ${user.completed_tickets}/${user.total_tickets}</p>
                                 </div>
                             </div>
                             <div class="mt-3">
@@ -405,7 +405,7 @@
                                                     <th>予定工数</th>
                                                     <th>実績時間</th>
                                                     <th>完了</th>
-                                                    <th>消化</th>
+                                                    <th>完了判定</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="ticket-details-body">
@@ -457,7 +457,7 @@
                     data.forEach(ticket => {
                         const row = document.createElement('tr');
                         const isCompleted = ticket.is_completed ? '✓' : '✗';
-                        const isConsumed = ticket.is_consumed ? '✓' : '✗';
+                        const isCompletedStatus = ticket.is_completed ? '✓' : '✗';
                         
                         row.innerHTML = `
                             <td>${ticket.id}</td>
@@ -466,7 +466,7 @@
                             <td>${parseFloat(ticket.estimated_hours).toFixed(2)}時間</td>
                             <td>${parseFloat(ticket.spent_hours).toFixed(2)}時間</td>
                             <td>${isCompleted}</td>
-                            <td>${isConsumed}</td>
+                            <td>${isCompletedStatus}</td>
                         `;
                         tableBody.appendChild(row);
                     });
