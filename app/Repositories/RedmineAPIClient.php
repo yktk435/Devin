@@ -224,24 +224,57 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     {
         $timeEntriesParams = [
             'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
-            'limit' => 100
+            'limit' => 100,
+            'offset' => 0
         ];
         
         if ($projectId) {
             $timeEntriesParams['project_id'] = $projectId;
         }
         
-        $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
+        $allTimeEntries = [];
+        $totalCount = 0;
+        $currentOffset = 0;
         
-        if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries']) || empty($timeEntriesResponse['time_entries'])) {
+        do {
+            $timeEntriesParams['offset'] = $currentOffset;
+            
+            $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
+            
+            if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries'])) {
+                Log::warning('Failed to retrieve time entries at offset ' . $currentOffset);
+                break;
+            }
+            
+            $currentEntries = $timeEntriesResponse['time_entries'];
+            $entriesCount = count($currentEntries);
+            
+            if ($entriesCount === 0) {
+                break;
+            }
+            
+            $allTimeEntries = array_merge($allTimeEntries, $currentEntries);
+            
+            $totalCount += $entriesCount;
+            $currentOffset += $timeEntriesParams['limit'];
+            
+            $totalAvailable = isset($timeEntriesResponse['total_count']) ? $timeEntriesResponse['total_count'] : 0;
+            
+            Log::info("Retrieved {$entriesCount} time entries (offset: {$timeEntriesParams['offset']}, total so far: {$totalCount}, total available: {$totalAvailable})");
+            
+        } while ($entriesCount === $timeEntriesParams['limit']); // Continue if we got a full page
+        
+        if (empty($allTimeEntries)) {
             Log::warning('No time entries found for the specified date range');
             return null;
         }
         
+        Log::info("Retrieved a total of " . count($allTimeEntries) . " time entries after pagination");
+        
         $userTimeEntries = [];
         $issueIds = [];
         
-        foreach ($timeEntriesResponse['time_entries'] as $entry) {
+        foreach ($allTimeEntries as $entry) {
             $userId = $entry['user']['id'];
             $userName = $entry['user']['name'];
             $issueId = $entry['issue']['id'];
