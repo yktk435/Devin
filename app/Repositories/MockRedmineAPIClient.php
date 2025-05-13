@@ -47,16 +47,16 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
     }
     
     /**
-     * Get individual consumption rate statistics
+     * Get individual progress rate statistics
      * 
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
      * @return array
      */
-    public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
     {
-        return $this->getMockIndividualConsumptionStats($startDate, $endDate);
+        return $this->getMockIndividualProgressStats($startDate, $endDate);
     }
 
     /**
@@ -163,13 +163,13 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
     }
     
     /**
-     * Generate mock individual consumption rate statistics for prototype
+     * Generate mock individual progress rate statistics for prototype
      * 
      * @param string $startDate
      * @param string $endDate
      * @return array
      */
-    private function getMockIndividualConsumptionStats($startDate, $endDate)
+    private function getMockIndividualProgressStats($startDate, $endDate)
     {
         $users = [
             ['id' => 1, 'name' => '山田太郎'],
@@ -195,13 +195,13 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
             $consumptionStats[] = [
                 'user_id' => $user['id'],
                 'user_name' => $user['name'],
-                'consumed_estimated_hours' => $consumedEstimatedHours, // 消化時間（消化したチケットの予定工数）
+                'consumed_estimated_hours' => $consumedEstimatedHours, // 完了時間（完了したチケットの予定工数）
                 'working_hours' => $workingHours, // 稼働時間
-                'achievement_rate' => $achievementRate, // 達成率
+                'progress_rate' => $achievementRate, // 進捗率
                 'total_tickets' => $totalTickets, // 総チケット数
                 'completed_tickets' => $completedTickets, // 完了チケット数
-                'consumed_tickets' => $consumedTickets, // 消化チケット数（完了かつ予定工数以内）
-                'ticket_consumption_rate' => round(($consumedTickets / $totalTickets) * 100) // チケット消化率
+                'completed_tickets_within_estimate' => $consumedTickets, // 予定工数以内で完了したチケット数
+                'ticket_completion_rate' => round(($completedTickets / $totalTickets) * 100) // チケット完了率
             ];
         }
         

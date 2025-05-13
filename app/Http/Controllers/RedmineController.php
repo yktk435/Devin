@@ -89,30 +89,88 @@ class RedmineController extends Controller
     }
     
     /**
-     * Display the individual consumption rate page
+     * Display the individual progress rate page
      *
      * @return \Illuminate\View\View
      */
-    public function individualConsumption()
+    public function individualProgress()
     {
         $projects = $this->redmineService->getProjects();
-        return view('redmine.individual_consumption', compact('projects'));
+        
+        $startDate = Carbon::now()->subDays(30)->format('Y-m-d');
+        $endDate = Carbon::now()->format('Y-m-d');
+        $initialData = $this->redmineService->getIndividualProgressStats($startDate, $endDate);
+        
+        return view('redmine.individual_progress', compact('projects', 'initialData'));
     }
     
     /**
-     * Get individual consumption rate statistics
+     * Get individual progress rate statistics
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getIndividualConsumptionStats(Request $request)
+    public function getIndividualProgressStats(Request $request)
     {
         $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
         $projectId = $request->input('project_id');
 
-        $stats = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate, $projectId);
-
-        return response()->json($stats);
+        try {
+            $stats = $this->redmineService->getIndividualProgressStats($startDate, $endDate, $projectId);
+            
+            if (!$stats) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'データの取得に失敗しました。'
+                ], 500);
+            }
+            
+            return response()->json($stats);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'エラーが発生しました: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * ユーザーのチケット詳細を取得
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUserTicketDetails(Request $request)
+    {
+        $userId = $request->input('user_id');
+        $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+        $projectId = $request->input('project_id');
+        
+        if (!$userId) {
+            return response()->json([
+                'error' => true,
+                'message' => 'ユーザーIDが指定されていません。'
+            ], 400);
+        }
+        
+        try {
+            $ticketDetails = $this->redmineService->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+            
+            if (!$ticketDetails) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'チケット詳細の取得に失敗しました。'
+                ], 500);
+            }
+            
+            return response()->json($ticketDetails);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'エラーが発生しました: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -35,14 +35,14 @@ interface RedmineAPIClientInterface
     public function getProgressRateStats($startDate, $endDate, $projectId = null);
     
     /**
-     * Get individual consumption rate statistics
+     * Get individual progress rate statistics
      * 
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
      * @return array
      */
-    public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null);
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null);
     
     /**
      * Get available projects

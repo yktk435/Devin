@@ -61,8 +61,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ route('individual-consumption') }}">
-                            <i class="bi bi-person-fill me-2"></i>個人別消化率
+                        <a class="nav-link" href="{{ route('individual-progress') }}">
+                            <i class="bi bi-person-fill me-2"></i>個人別進捗率
                         </a>
                     </li>
                 </ul>

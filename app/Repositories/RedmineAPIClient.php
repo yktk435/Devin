@@ -3,15 +3,16 @@
 namespace App\Repositories;
 
 use App\Interfaces\RedmineAPIClientInterface;
+use App\Models\RedmineStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Real implementation of RedmineAPIClient
- * 
- * This class implements the RedmineAPIClientInterface to interact with the Redmine API.
- * Configuration is read from .env file.
+ * RedmineAPIClientの実装
+ *
+ * このクラスはRedmineAPIClientInterfaceを実装し、Redmine APIと対話します。
+ * 設定は.envファイルから読み込まれます。
  */
 class RedmineAPIClient implements RedmineAPIClientInterface
 {
@@ -20,21 +21,23 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     protected $isConfigured;
 
     /**
-     * Constructor
+     * コンストラクタ
      */
     public function __construct()
     {
         $this->apiUrl = env('REDMINE_API_URL');
         $this->apiKey = env('REDMINE_API_KEY');
         $this->isConfigured = !empty($this->apiUrl) && !empty($this->apiKey);
-        
+
+        $this->initializeStatuses();
+
         if (!$this->isConfigured) {
-            Log::warning('RedmineAPIClient is not properly configured. Check REDMINE_API_URL and REDMINE_API_KEY in .env');
+            Log::warning('RedmineAPIClientが正しく設定されていません。.envファイルのREDMINE_API_URLとREDMINE_API_KEYを確認してください。');
         }
     }
 
     /**
-     * Make an API request to Redmine
+     * Redmine APIにリクエストを送信
      *
      * @param string $endpoint
      * @param array $params
@@ -56,26 +59,26 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 return $response->json();
             }
 
-            Log::error('Redmine API request failed', [
+            Log::error('Redmine APIリクエストが失敗しました', [
                 'endpoint' => $endpoint,
                 'status' => $response->status(),
                 'response' => $response->body()
             ]);
-            
+
             return null;
         } catch (\Exception $e) {
-            Log::error('Exception in Redmine API request', [
+            Log::error('Redmine APIリクエスト中に例外が発生しました', [
                 'endpoint' => $endpoint,
                 'message' => $e->getMessage()
             ]);
-            
+
             return null;
         }
     }
 
     /**
-     * Get daily statistics from Redmine API
-     * 
+     * Redmine APIから日次統計を取得
+     *
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
@@ -88,21 +91,21 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             'created_on' => urlencode('><') . $startDate . '|' . $endDate,
             'limit' => 100
         ];
-        
+
         if ($projectId) {
             $params['project_id'] = $projectId;
         }
-        
+
         $response = $this->makeApiRequest('/issues.json', $params);
-        
+
         if (!$response || !isset($response['issues'])) {
             return null;
         }
-        
+
         $dailyStats = [];
         $startCarbon = Carbon::parse($startDate);
         $endCarbon = Carbon::parse($endDate);
-        
+
         for ($date = $startCarbon; $date->lte($endCarbon); $date->addDay()) {
             $dateStr = $date->format('Y-m-d');
             $dailyStats[$dateStr] = [
@@ -111,10 +114,10 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'incomplete' => 0
             ];
         }
-        
+
         foreach ($response['issues'] as $issue) {
             $createdDate = substr($issue['created_on'], 0, 10);
-            
+
             if (isset($dailyStats[$createdDate])) {
                 if ($issue['status']['name'] === 'Closed' || $issue['status']['name'] === '完了') {
                     $dailyStats[$createdDate]['completed']++;
@@ -123,13 +126,13 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 }
             }
         }
-        
+
         return array_values($dailyStats);
     }
 
     /**
-     * Get monthly statistics from Redmine API
-     * 
+     * Redmine APIから月次統計を取得
+     *
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
@@ -142,21 +145,21 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             'created_on' => urlencode('><') . $startDate . '|' . $endDate,
             'limit' => 100
         ];
-        
+
         if ($projectId) {
             $params['project_id'] = $projectId;
         }
-        
+
         $response = $this->makeApiRequest('/issues.json', $params);
-        
+
         if (!$response || !isset($response['issues'])) {
             return null;
         }
-        
+
         $monthlyStats = [];
         $startCarbon = Carbon::parse($startDate)->startOfMonth();
         $endCarbon = Carbon::parse($endDate)->endOfMonth();
-        
+
         for ($date = $startCarbon; $date->lte($endCarbon); $date->addMonth()) {
             $monthStr = $date->format('Y-m');
             $monthlyStats[$monthStr] = [
@@ -165,10 +168,10 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'incomplete' => 0
             ];
         }
-        
+
         foreach ($response['issues'] as $issue) {
             $createdMonth = substr($issue['created_on'], 0, 7);
-            
+
             if (isset($monthlyStats[$createdMonth])) {
                 if ($issue['status']['name'] === 'Closed' || $issue['status']['name'] === '完了') {
                     $monthlyStats[$createdMonth]['completed']++;
@@ -177,13 +180,13 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 }
             }
         }
-        
+
         return array_values($monthlyStats);
     }
 
     /**
-     * Get progress rate statistics from Redmine API
-     * 
+     * Redmine APIから進捗率統計を取得
+     *
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
@@ -197,56 +200,132 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             'include' => 'journals',
             'limit' => 100
         ];
-        
+
         if ($projectId) {
             $params['project_id'] = $projectId;
         }
-        
+
         $response = $this->makeApiRequest('/issues.json', $params);
-        
+
         if (!$response || !isset($response['issues'])) {
             return null;
         }
-        
-        
+
+
         return null;
     }
-    
+
     /**
-     * Get individual consumption rate statistics from Redmine API
-     * 
+     * Redmine APIから個人進捗率統計を取得
+     *
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
      * @return array|null
      */
-    public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
     {
-        $timeEntriesParams = [
-            'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
-            'limit' => 100
-        ];
-        
-        if ($projectId) {
-            $timeEntriesParams['project_id'] = $projectId;
+        // まずデータベースから時間エントリを取得
+        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+
+        // データベースにエントリがある場合はそれを使用
+        if (!empty($dbTimeEntries)) {
+            Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
+            $allTimeEntries = $dbTimeEntries;
+        } else {
+            // データベースにエントリがない場合はAPIから取得
+            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+
+            $timeEntriesParams = [
+                'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
+                'limit' => 100,
+                'offset' => 0
+            ];
+
+            if ($projectId) {
+                $timeEntriesParams['project_id'] = $projectId;
+            }
+
+            $allTimeEntries = [];
+            $totalCount = 0;
+            $currentOffset = 0;
+
+            do {
+                $timeEntriesParams['offset'] = $currentOffset;
+
+                $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
+
+                if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries'])) {
+                    Log::warning('オフセット' . $currentOffset . 'での時間エントリの取得に失敗しました');
+                    break;
+                }
+
+                $currentEntries = $timeEntriesResponse['time_entries'];
+                $entriesCount = count($currentEntries);
+
+                if ($entriesCount === 0) {
+                    break;
+                }
+
+                $allTimeEntries = array_merge($allTimeEntries, $currentEntries);
+
+                $totalCount += $entriesCount;
+                $currentOffset += $timeEntriesParams['limit'];
+
+                $totalAvailable = isset($timeEntriesResponse['total_count']) ? $timeEntriesResponse['total_count'] : 0;
+
+                Log::info("{$entriesCount}件の時間エントリを取得しました（オフセット: {$timeEntriesParams['offset']}, 合計: {$totalCount}, 利用可能な合計: {$totalAvailable}）");
+
+            } while ($entriesCount === $timeEntriesParams['limit']); // フルページを取得した場合は続行
+
+            if (empty($allTimeEntries)) {
+                Log::warning('指定された日付範囲の時間エントリが見つかりませんでした');
+                return null;
+            }
+
+            Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
         }
-        
-        $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
-        
-        if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries']) || empty($timeEntriesResponse['time_entries'])) {
-            Log::warning('No time entries found for the specified date range');
-            return null;
+
+        // 時間エントリをデータベースに保存
+        foreach ($allTimeEntries as $entry) {
+            try {
+                // エントリがすでにデータベースに存在するか確認
+                $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
+
+                if (!$existingEntry) {
+                    // 存在しない場合は新しいエントリを作成
+                    \App\Models\TimeEntry::create([
+                        'redmine_id' => $entry['id'],
+                        'user_id' => $entry['user']['id'],
+                        'user_name' => $entry['user']['name'],
+                        'issue_id' => $entry['issue']['id'],
+                        'issue_subject' => $entry['issue']['subject'] ?? null,
+                        'hours' => $entry['hours'],
+                        'spent_on' => $entry['spent_on'],
+                        'comments' => $entry['comments'] ?? null,
+                    ]);
+                }
+
+                // ユーザー情報をデータベースに保存
+                $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
+
+            } catch (\Exception $e) {
+                Log::error('時間エントリのデータベースへの保存に失敗しました', [
+                    'entry_id' => $entry['id'],
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
-        
+
         $userTimeEntries = [];
         $issueIds = [];
-        
-        foreach ($timeEntriesResponse['time_entries'] as $entry) {
+
+        foreach ($allTimeEntries as $entry) {
             $userId = $entry['user']['id'];
             $userName = $entry['user']['name'];
             $issueId = $entry['issue']['id'];
             $hours = $entry['hours'];
-            
+
             if (!isset($userTimeEntries[$userId])) {
                 $userTimeEntries[$userId] = [
                     'user_id' => $userId,
@@ -255,93 +334,163 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                     'issues' => []
                 ];
             }
-            
+
             $userTimeEntries[$userId]['working_hours'] += $hours;
-            
+
             if (!isset($userTimeEntries[$userId]['issues'][$issueId])) {
                 $userTimeEntries[$userId]['issues'][$issueId] = [
                     'spent_hours' => 0
                 ];
             }
-            
+
             $userTimeEntries[$userId]['issues'][$issueId]['spent_hours'] += $hours;
             $issueIds[] = $issueId;
         }
-        
+
         $uniqueIssueIds = array_unique($issueIds);
         $issueDetails = [];
-        
+
         $issueBatches = array_chunk($uniqueIssueIds, 20);
-        
+
         foreach ($issueBatches as $batch) {
             $issuesParams = [
                 'issue_id' => implode(',', $batch),
                 'status_id' => '*',
                 'include' => 'relations'
             ];
-            
+
             $issuesResponse = $this->makeApiRequest('/issues.json', $issuesParams);
-            
+
             if ($issuesResponse && isset($issuesResponse['issues'])) {
                 foreach ($issuesResponse['issues'] as $issue) {
+                    Log::info("チケット #{$issue['id']} のステータス: {$issue['status']['name']}");
+
+                    $statusName = $issue['status']['name'];
+                    $statusId = $issue['status']['id'] ?? null;
+                    $status = $this->upsertStatus($statusId, $statusName);
+
+                    $isCompletedStatus = $status ? $status->is_completed : false;
+
+                    // データベースに登録されていない場合はデフォルトのリストを使用
+                    if (!$status) {
+                        $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+                        $isCompletedStatus = in_array($statusName, $completedStatuses);
+                    }
+
                     $issueDetails[$issue['id']] = [
                         'id' => $issue['id'],
                         'subject' => $issue['subject'],
                         'status' => $issue['status']['name'],
-                        'is_completed' => ($issue['status']['name'] === 'Closed' || $issue['status']['name'] === '完了'),
+                        'is_completed_status' => $isCompletedStatus, // ステータスが完了状態かどうか
                         'estimated_hours' => isset($issue['estimated_hours']) ? $issue['estimated_hours'] : 0
                     ];
                 }
             }
         }
-        
+
         $consumptionStats = [];
-        
+
         foreach ($userTimeEntries as $userId => $userData) {
             $totalTickets = 0;
             $completedTickets = 0;
             $consumedTickets = 0;
             $consumedEstimatedHours = 0;
-            
+
             foreach ($userData['issues'] as $issueId => $issueData) {
                 if (isset($issueDetails[$issueId])) {
                     $totalTickets++;
                     $issue = $issueDetails[$issueId];
-                    
-                    if ($issue['is_completed']) {
+
+                    if ($issue['is_completed_status']) {
                         $completedTickets++;
-                        
+
                         if ($issue['estimated_hours'] > 0 && $issueData['spent_hours'] <= $issue['estimated_hours']) {
                             $consumedTickets++;
                             $consumedEstimatedHours += $issue['estimated_hours'];
                         }
                     }
+
+                    Log::info("チケット #{$issue['id']} ({$issue['subject']}): ステータス={$issue['status']}, 完了状態=" .
+                        ($issue['is_completed_status'] ? 'はい' : 'いいえ') .
+                        ", 予定工数={$issue['estimated_hours']}, 実績時間={$issueData['spent_hours']}");
                 }
             }
-            
+
             $workingHours = $userData['working_hours'];
-            $achievementRate = ($workingHours > 0) ? round(($consumedEstimatedHours / $workingHours) * 100) : 0;
-            $ticketConsumptionRate = ($totalTickets > 0) ? round(($consumedTickets / $totalTickets) * 100) : 0;
-            
+            $progressRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
+            $ticketCompletionRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
+
             $consumptionStats[] = [
                 'user_id' => $userData['user_id'],
                 'user_name' => $userData['user_name'],
-                'consumed_estimated_hours' => $consumedEstimatedHours, // 消化時間（消化したチケットの予定工数）
+                'consumed_estimated_hours' => $consumedEstimatedHours, // 完了時間（完了したチケットの予定工数）
                 'working_hours' => $workingHours, // 稼働時間
-                'achievement_rate' => $achievementRate, // 達成率
+                'progress_rate' => $progressRate, // 進捗率（着手したチケットのうち終了しているものの割合）
                 'total_tickets' => $totalTickets, // 総チケット数
                 'completed_tickets' => $completedTickets, // 完了チケット数
-                'consumed_tickets' => $consumedTickets, // 消化チケット数（完了かつ予定工数以内）
-                'ticket_consumption_rate' => $ticketConsumptionRate // チケット消化率
+                'ticket_completion_rate' => $ticketCompletionRate // チケット完了率
             ];
         }
-        
+
         return $consumptionStats;
     }
-    
+
     /**
-     * Get available projects from Redmine API
-     * 
+     * データベースから時間エントリを取得
+     *
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array
+     */
+    protected function getTimeEntriesFromDatabase($startDate, $endDate, $projectId = null)
+    {
+        try {
+            $query = \App\Models\TimeEntry::whereBetween('spent_on', [$startDate, $endDate]);
+
+            if ($projectId) {
+                // 注意: これはデータベース内の時間エントリがプロジェクトにリンクされていることを前提としています
+                // そうでない場合は、実際のデータモデルに基づいて調整する必要があります
+                $query->where('issue_id', 'LIKE', $projectId . '-%');
+            }
+
+            $entries = $query->get();
+
+            if ($entries->isEmpty()) {
+                return [];
+            }
+
+            // データベースエントリをAPI形式に変換
+            $formattedEntries = [];
+            foreach ($entries as $entry) {
+                $formattedEntries[] = [
+                    'id' => $entry->redmine_id,
+                    'user' => [
+                        'id' => $entry->user_id,
+                        'name' => $entry->user_name
+                    ],
+                    'issue' => [
+                        'id' => $entry->issue_id,
+                        'subject' => $entry->issue_subject
+                    ],
+                    'hours' => $entry->hours,
+                    'spent_on' => $entry->spent_on->format('Y-m-d'),
+                    'comments' => $entry->comments
+                ];
+            }
+
+            return $formattedEntries;
+        } catch (\Exception $e) {
+            Log::error('データベースからの時間エントリの取得中にエラーが発生しました', [
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Redmine APIから利用可能なプロジェクトを取得
+     *
      * @return array|null
      */
     public function getProjects()
@@ -349,16 +498,16 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         $params = [
             'limit' => 100
         ];
-        
+
         $response = $this->makeApiRequest('/projects.json', $params);
-        
+
         if (!$response || !isset($response['projects'])) {
-            Log::warning('Failed to retrieve projects from Redmine API');
+            Log::warning('Redmine APIからプロジェクトの取得に失敗しました');
             return null;
         }
-        
+
         $projects = [];
-        
+
         foreach ($response['projects'] as $project) {
             $projects[] = [
                 'id' => $project['id'],
@@ -367,7 +516,298 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'description' => isset($project['description']) ? $project['description'] : ''
             ];
         }
-        
+
         return $projects;
+    }
+
+    /**
+     * ユーザー情報をデータベースに保存
+     *
+     * @param int $redmineId
+     * @param string $name
+     * @return \App\Models\RedmineUser
+     */
+    protected function saveUserToDatabase($redmineId, $name)
+    {
+        try {
+            Log::info("ユーザー情報をデータベースに保存しようとしています: {$name} (ID: {$redmineId})");
+
+            // ユーザーがすでにデータベースに存在するか確認
+            $user = \App\Models\RedmineUser::where('redmine_id', $redmineId)->first();
+
+            if (!$user) {
+                // 存在しない場合は新しいユーザーを作成
+                Log::info("新しいユーザーを作成します: {$name} (ID: {$redmineId})");
+
+                $user = new \App\Models\RedmineUser();
+                $user->redmine_id = $redmineId;
+                $user->name = $name;
+                $user->save();
+
+                Log::info("新しいユーザーをデータベースに保存しました: {$name} (ID: {$redmineId})");
+            } else if ($user->name !== $name) {
+                $user->name = $name;
+                $user->save();
+                Log::info("ユーザー情報を更新しました: {$name} (ID: {$redmineId})");
+            } else {
+                Log::info("ユーザーはすでに存在し、更新の必要はありません: {$name} (ID: {$redmineId})");
+            }
+
+            $checkUser = \App\Models\RedmineUser::where('redmine_id', $redmineId)->first();
+            if ($checkUser) {
+                Log::info("ユーザーが正常にデータベースに保存されました: {$checkUser->name} (ID: {$checkUser->redmine_id})");
+            } else {
+                Log::warning("ユーザーの保存を確認できませんでした: {$name} (ID: {$redmineId})");
+            }
+
+            return $user;
+        } catch (\Exception $e) {
+            Log::error('ユーザー情報のデータベースへの保存に失敗しました', [
+                'redmine_id' => $redmineId,
+                'name' => $name,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * 特定ユーザーのチケット詳細を取得
+     *
+     * @param int $userId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array|null
+     */
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    {
+        Log::info("ユーザーID: {$userId}のチケット詳細を取得します（期間: {$startDate}から{$endDate}）");
+
+        // まずデータベースから時間エントリを取得
+        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+
+        // データベースにエントリがある場合はそれを使用
+        if (!empty($dbTimeEntries)) {
+            Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
+            $allTimeEntries = $dbTimeEntries;
+        } else {
+            // データベースにエントリがない場合はAPIから取得
+            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+
+            $timeEntriesParams = [
+                'user_id' => $userId,
+                'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
+                'limit' => 100,
+                'offset' => 0
+            ];
+
+            if ($projectId) {
+                $timeEntriesParams['project_id'] = $projectId;
+            }
+
+            $allTimeEntries = [];
+            $totalCount = 0;
+            $currentOffset = 0;
+
+            do {
+                $timeEntriesParams['offset'] = $currentOffset;
+
+                $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
+
+                if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries'])) {
+                    Log::warning('オフセット' . $currentOffset . 'での時間エントリの取得に失敗しました');
+                    break;
+                }
+
+                $currentEntries = $timeEntriesResponse['time_entries'];
+                $entriesCount = count($currentEntries);
+
+                if ($entriesCount === 0) {
+                    break;
+                }
+
+                $allTimeEntries = array_merge($allTimeEntries, $currentEntries);
+
+                $totalCount += $entriesCount;
+                $currentOffset += $timeEntriesParams['limit'];
+
+                $totalAvailable = isset($timeEntriesResponse['total_count']) ? $timeEntriesResponse['total_count'] : 0;
+
+                Log::info("{$entriesCount}件の時間エントリを取得しました（オフセット: {$timeEntriesParams['offset']}, 合計: {$totalCount}, 利用可能な合計: {$totalAvailable}）");
+
+            } while ($entriesCount === $timeEntriesParams['limit']); // フルページを取得した場合は続行
+
+            if (empty($allTimeEntries)) {
+                Log::warning("ユーザーID: {$userId}の指定された日付範囲の時間エントリが見つかりませんでした");
+                return [];
+            }
+
+            Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
+
+            // 時間エントリをデータベースに保存
+            foreach ($allTimeEntries as $entry) {
+                try {
+                    // エントリがすでにデータベースに存在するか確認
+                    $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
+
+                    if (!$existingEntry) {
+                        // 存在しない場合は新しいエントリを作成
+                        \App\Models\TimeEntry::create([
+                            'redmine_id' => $entry['id'],
+                            'user_id' => $entry['user']['id'],
+                            'user_name' => $entry['user']['name'],
+                            'issue_id' => $entry['issue']['id'],
+                            'issue_subject' => $entry['issue']['subject'] ?? null,
+                            'hours' => $entry['hours'],
+                            'spent_on' => $entry['spent_on'],
+                            'comments' => $entry['comments'] ?? null,
+                        ]);
+                    }
+
+                    // ユーザー情報をデータベースに保存
+                    $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
+
+                } catch (\Exception $e) {
+                    Log::error('時間エントリのデータベースへの保存に失敗しました', [
+                        'entry_id' => $entry['id'],
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+
+        $userTimeEntries = array_filter($allTimeEntries, function($entry) use ($userId) {
+            return $entry['user']['id'] == $userId;
+        });
+
+        if (empty($userTimeEntries)) {
+            Log::warning("ユーザーID: {$userId}の時間エントリが見つかりませんでした");
+            return [];
+        }
+
+        $issueIds = [];
+        foreach ($userTimeEntries as $entry) {
+            $issueIds[] = $entry['issue']['id'];
+        }
+
+        $uniqueIssueIds = array_unique($issueIds);
+        $issueDetails = [];
+
+        $issueBatches = array_chunk($uniqueIssueIds, 20);
+
+        foreach ($issueBatches as $batch) {
+            $issuesParams = [
+                'issue_id' => implode(',', $batch),
+                'status_id' => '*',
+                'include' => 'relations'
+            ];
+
+            $issuesResponse = $this->makeApiRequest('/issues.json', $issuesParams);
+
+            if ($issuesResponse && isset($issuesResponse['issues'])) {
+                foreach ($issuesResponse['issues'] as $issue) {
+                    $statusName = $issue['status']['name'];
+                    $statusId = $issue['status']['id'] ?? null;
+                    $status = $this->upsertStatus($statusId, $statusName);
+
+                    $isCompletedStatus = $status ? $status->is_completed : false;
+
+                    // データベースに登録されていない場合はデフォルトのリストを使用
+                    if (!$status) {
+                        $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+                        $isCompletedStatus = in_array($statusName, $completedStatuses);
+                    }
+
+                    $issueDetails[$issue['id']] = [
+                        'id' => $issue['id'],
+                        'subject' => $issue['subject'],
+                        'status' => $issue['status']['name'],
+                        'is_completed' => $isCompletedStatus,
+                        'estimated_hours' => isset($issue['estimated_hours']) ? $issue['estimated_hours'] : 0,
+                        'spent_hours' => 0 // 後で更新
+                    ];
+                }
+            }
+        }
+
+        foreach ($userTimeEntries as $entry) {
+            $issueId = $entry['issue']['id'];
+            if (isset($issueDetails[$issueId])) {
+                $issueDetails[$issueId]['spent_hours'] += $entry['hours'];
+            }
+        }
+
+        $result = [];
+        foreach ($issueDetails as $issueId => $issue) {
+            $isConsumed = $issue['is_completed'] && $issue['estimated_hours'] > 0 && $issue['spent_hours'] <= $issue['estimated_hours'];
+
+            $result[] = [
+                'id' => $issue['id'],
+                'subject' => $issue['subject'],
+                'status' => $issue['status'],
+                'estimated_hours' => $issue['estimated_hours'],
+                'spent_hours' => $issue['spent_hours'],
+                'is_completed' => $issue['is_completed'],
+                'is_consumed' => $isConsumed
+            ];
+        }
+
+        usort($result, function($a, $b) {
+            return $a['id'] - $b['id'];
+        });
+
+        Log::info("ユーザーID: {$userId}のチケット詳細を" . count($result) . "件取得しました");
+
+        return $result;
+    }
+
+    /**
+     * ステータスをデータベースに登録または更新する
+     *
+     * @param int|null $redmineId
+     * @param string $name
+     * @param bool $isCompleted
+     * @return \App\Models\RedmineStatus
+     */
+    protected function upsertStatus($redmineId, $name, $isCompleted = false)
+    {
+        try {
+            $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+
+            if (in_array($name, $completedStatuses)) {
+                $isCompleted = true;
+            }
+
+            $status = RedmineStatus::updateOrCreate(
+                ['name' => $name],
+                [
+                    'redmine_id' => $redmineId,
+                    'is_completed' => $isCompleted
+                ]
+            );
+
+            return $status;
+        } catch (\Exception $e) {
+            Log::error('ステータスのデータベースへの保存に失敗しました', [
+                'name' => $name,
+                'error' => $e->getMessage()
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * 初期ステータスをデータベースに登録
+     */
+    protected function initializeStatuses()
+    {
+        $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+
+        foreach ($completedStatuses as $status) {
+            $this->upsertStatus(null, $status, true);
+        }
     }
 }

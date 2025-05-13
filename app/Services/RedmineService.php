@@ -116,16 +116,30 @@ class RedmineService
     }
     
     /**
-     * Get individual consumption rate statistics
+     * Get individual progress rate statistics
      * 
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
      * @return array
      */
-    public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
     {
-        return $this->redmineClient->getIndividualConsumptionStats($startDate, $endDate, $projectId);
+        return $this->redmineClient->getIndividualProgressStats($startDate, $endDate, $projectId);
+    }
+    
+    /**
+     * ユーザーのチケット詳細を取得
+     * 
+     * @param int $userId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array
+     */
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    {
+        return $this->redmineClient->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
     }
     
     /**

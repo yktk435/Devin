@@ -16,9 +16,10 @@ class RedmineServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->bind(RedmineAPIClientInterface::class, function ($app) {
-            $useRealApi = env('REDMINE_USE_REAL_API', false);
+            $apiKey = env('REDMINE_API_KEY', '');
+            $apiUrl = env('REDMINE_API_URL', '');
             
-            if ($useRealApi) {
+            if (!empty($apiKey) && !empty($apiUrl)) {
                 return new \App\Repositories\RedmineAPIClient();
             }
             
