@@ -351,8 +351,8 @@
                                     <div class="achievement-label">達成率</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <p class="mb-1">消化時間: ${user.consumed_estimated_hours}時間</p>
-                                    <p class="mb-1">稼働時間: ${user.working_hours}時間</p>
+                                    <p class="mb-1">消化時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
+                                    <p class="mb-1">稼働時間: ${parseFloat(user.working_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">消化チケット: ${user.consumed_tickets}/${user.total_tickets}</p>
                                 </div>
                             </div>
@@ -464,8 +464,8 @@
                             <td>${ticket.id}</td>
                             <td>${ticket.subject}</td>
                             <td>${ticket.status}</td>
-                            <td>${ticket.estimated_hours}時間</td>
-                            <td>${ticket.spent_hours}時間</td>
+                            <td>${parseFloat(ticket.estimated_hours).toFixed(2)}時間</td>
+                            <td>${parseFloat(ticket.spent_hours).toFixed(2)}時間</td>
                             <td>${isCompleted}</td>
                             <td>${isConsumed}</td>
                         `;
@@ -490,8 +490,8 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${user.user_name}</td>
-                    <td>${user.consumed_estimated_hours}時間</td>
-                    <td>${user.working_hours}時間</td>
+                    <td>${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</td>
+                    <td>${parseFloat(user.working_hours).toFixed(2)}時間</td>
                     <td>${user.achievement_rate}%</td>
                     <td>${user.total_tickets}</td>
                     <td>${user.completed_tickets}</td>

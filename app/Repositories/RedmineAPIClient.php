@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Interfaces\RedmineAPIClientInterface;
+use App\Models\RedmineStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         $this->apiUrl = env('REDMINE_API_URL');
         $this->apiKey = env('REDMINE_API_KEY');
         $this->isConfigured = !empty($this->apiUrl) && !empty($this->apiKey);
+        
+        $this->initializeStatuses();
         
         if (!$this->isConfigured) {
             Log::warning('RedmineAPIClientが正しく設定されていません。.envファイルのREDMINE_API_URLとREDMINE_API_KEYを確認してください。');
@@ -362,9 +365,17 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 foreach ($issuesResponse['issues'] as $issue) {
                     Log::info("チケット #{$issue['id']} のステータス: {$issue['status']['name']}");
                     
-                    $completedStatuses = ['Closed', '完了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
-                    $isCompletedStatus = in_array($issue['status']['name'], $completedStatuses);
+                    $statusName = $issue['status']['name'];
+                    $statusId = $issue['status']['id'] ?? null;
+                    $status = $this->upsertStatus($statusId, $statusName);
                     
+                    $isCompletedStatus = $status ? $status->is_completed : false;
+                    
+                    // データベースに登録されていない場合はデフォルトのリストを使用
+                    if (!$status) {
+                        $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+                        $isCompletedStatus = in_array($statusName, $completedStatuses);
+                    }
                     
                     $issueDetails[$issue['id']] = [
                         'id' => $issue['id'],
@@ -698,8 +709,17 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             
             if ($issuesResponse && isset($issuesResponse['issues'])) {
                 foreach ($issuesResponse['issues'] as $issue) {
-                    $completedStatuses = ['Closed', '完了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
-                    $isCompletedStatus = in_array($issue['status']['name'], $completedStatuses);
+                    $statusName = $issue['status']['name'];
+                    $statusId = $issue['status']['id'] ?? null;
+                    $status = $this->upsertStatus($statusId, $statusName);
+                    
+                    $isCompletedStatus = $status ? $status->is_completed : false;
+                    
+                    // データベースに登録されていない場合はデフォルトのリストを使用
+                    if (!$status) {
+                        $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+                        $isCompletedStatus = in_array($statusName, $completedStatuses);
+                    }
                     
                     $issueDetails[$issue['id']] = [
                         'id' => $issue['id'],
@@ -742,5 +762,47 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         Log::info("ユーザーID: {$userId}のチケット詳細を" . count($result) . "件取得しました");
         
         return $result;
+    }
+    
+    /**
+     * ステータスをデータベースに登録または更新する
+     * 
+     * @param int|null $redmineId
+     * @param string $name
+     * @param bool $isCompleted
+     * @return \App\Models\RedmineStatus
+     */
+    protected function upsertStatus($redmineId, $name, $isCompleted = false)
+    {
+        try {
+            $status = RedmineStatus::updateOrCreate(
+                ['name' => $name],
+                [
+                    'redmine_id' => $redmineId,
+                    'is_completed' => $isCompleted
+                ]
+            );
+            
+            return $status;
+        } catch (\Exception $e) {
+            Log::error('ステータスのデータベースへの保存に失敗しました', [
+                'name' => $name,
+                'error' => $e->getMessage()
+            ]);
+            
+            return null;
+        }
+    }
+    
+    /**
+     * 初期ステータスをデータベースに登録
+     */
+    protected function initializeStatuses()
+    {
+        $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+        
+        foreach ($completedStatuses as $status) {
+            $this->upsertStatus(null, $status, true);
+        }
     }
 }
