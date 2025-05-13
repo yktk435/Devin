@@ -40,7 +40,7 @@ services:
 
   # MySQL Service
   db:
-    image: mariadb:10.6
+    image: mysql:8.0
     platform: linux/arm64
     container_name: redmine-db
     restart: unless-stopped
