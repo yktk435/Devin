@@ -775,6 +775,12 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     protected function upsertStatus($redmineId, $name, $isCompleted = false)
     {
         try {
+            $completedStatuses = ['Closed', '完了', '終了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+            
+            if (in_array($name, $completedStatuses)) {
+                $isCompleted = true;
+            }
+            
             $status = RedmineStatus::updateOrCreate(
                 ['name' => $name],
                 [
