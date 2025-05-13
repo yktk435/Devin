@@ -360,11 +360,16 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             
             if ($issuesResponse && isset($issuesResponse['issues'])) {
                 foreach ($issuesResponse['issues'] as $issue) {
+                    Log::info("チケット #{$issue['id']} のステータス: {$issue['status']['name']}");
+                    
+                    $completedStatuses = ['Closed', '完了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+                    $isCompleted = in_array($issue['status']['name'], $completedStatuses);
+                    
                     $issueDetails[$issue['id']] = [
                         'id' => $issue['id'],
                         'subject' => $issue['subject'],
                         'status' => $issue['status']['name'],
-                        'is_completed' => ($issue['status']['name'] === 'Closed' || $issue['status']['name'] === '完了'),
+                        'is_completed' => $isCompleted,
                         'estimated_hours' => isset($issue['estimated_hours']) ? $issue['estimated_hours'] : 0
                     ];
                 }
