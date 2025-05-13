@@ -272,7 +272,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 $totalCount += $entriesCount;
                 $currentOffset += $timeEntriesParams['limit'];
 
- s                $totalAvailable = isset($timeEntriesResponse['total_count']) ? $timeEntriesResponse['total_count'] : 0;
+                $totalAvailable = isset($timeEntriesResponse['total_count']) ? $timeEntriesResponse['total_count'] : 0;
 
                 Log::info("{$entriesCount}件の時間エントリを取得しました（オフセット: {$timeEntriesParams['offset']}, 合計: {$totalCount}, 利用可能な合計: {$totalAvailable}）");
 
