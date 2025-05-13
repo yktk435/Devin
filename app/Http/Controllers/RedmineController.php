@@ -134,4 +134,43 @@ class RedmineController extends Controller
             ], 500);
         }
     }
+    
+    /**
+     * ユーザーのチケット詳細を取得
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUserTicketDetails(Request $request)
+    {
+        $userId = $request->input('user_id');
+        $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+        $projectId = $request->input('project_id');
+        
+        if (!$userId) {
+            return response()->json([
+                'error' => true,
+                'message' => 'ユーザーIDが指定されていません。'
+            ], 400);
+        }
+        
+        try {
+            $ticketDetails = $this->redmineService->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+            
+            if (!$ticketDetails) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'チケット詳細の取得に失敗しました。'
+                ], 500);
+            }
+            
+            return response()->json($ticketDetails);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'エラーが発生しました: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

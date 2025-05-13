@@ -21,3 +21,4 @@ Route::get('/api/daily-stats', [RedmineController::class, 'getDailyStats'])->nam
 Route::get('/api/monthly-stats', [RedmineController::class, 'getMonthlyStats'])->name('api.monthly-stats');
 Route::get('/api/progress-rate-stats', [RedmineController::class, 'getProgressRateStats'])->name('api.progress-rate-stats');
 Route::get('/api/individual-consumption-stats', [RedmineController::class, 'getIndividualConsumptionStats'])->name('api.individual-consumption-stats');
+Route::get('/api/user-ticket-details', [RedmineController::class, 'getUserTicketDetails'])->name('api.user-ticket-details');

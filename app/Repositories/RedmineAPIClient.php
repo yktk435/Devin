@@ -561,4 +561,186 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             return null;
         }
     }
+    
+    /**
+     * 特定ユーザーのチケット詳細を取得
+     * 
+     * @param int $userId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array|null
+     */
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    {
+        Log::info("ユーザーID: {$userId}のチケット詳細を取得します（期間: {$startDate}から{$endDate}）");
+        
+        // まずデータベースから時間エントリを取得
+        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+        
+        // データベースにエントリがある場合はそれを使用
+        if (!empty($dbTimeEntries)) {
+            Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
+            $allTimeEntries = $dbTimeEntries;
+        } else {
+            // データベースにエントリがない場合はAPIから取得
+            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+            
+            $timeEntriesParams = [
+                'user_id' => $userId,
+                'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
+                'limit' => 100,
+                'offset' => 0
+            ];
+            
+            if ($projectId) {
+                $timeEntriesParams['project_id'] = $projectId;
+            }
+            
+            $allTimeEntries = [];
+            $totalCount = 0;
+            $currentOffset = 0;
+            
+            do {
+                $timeEntriesParams['offset'] = $currentOffset;
+                
+                $timeEntriesResponse = $this->makeApiRequest('/time_entries.json', $timeEntriesParams);
+                
+                if (!$timeEntriesResponse || !isset($timeEntriesResponse['time_entries'])) {
+                    Log::warning('オフセット' . $currentOffset . 'での時間エントリの取得に失敗しました');
+                    break;
+                }
+                
+                $currentEntries = $timeEntriesResponse['time_entries'];
+                $entriesCount = count($currentEntries);
+                
+                if ($entriesCount === 0) {
+                    break;
+                }
+                
+                $allTimeEntries = array_merge($allTimeEntries, $currentEntries);
+                
+                $totalCount += $entriesCount;
+                $currentOffset += $timeEntriesParams['limit'];
+                
+                $totalAvailable = isset($timeEntriesResponse['total_count']) ? $timeEntriesResponse['total_count'] : 0;
+                
+                Log::info("{$entriesCount}件の時間エントリを取得しました（オフセット: {$timeEntriesParams['offset']}, 合計: {$totalCount}, 利用可能な合計: {$totalAvailable}）");
+                
+            } while ($entriesCount === $timeEntriesParams['limit']); // フルページを取得した場合は続行
+            
+            if (empty($allTimeEntries)) {
+                Log::warning("ユーザーID: {$userId}の指定された日付範囲の時間エントリが見つかりませんでした");
+                return [];
+            }
+            
+            Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
+            
+            // 時間エントリをデータベースに保存
+            foreach ($allTimeEntries as $entry) {
+                try {
+                    // エントリがすでにデータベースに存在するか確認
+                    $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
+                    
+                    if (!$existingEntry) {
+                        // 存在しない場合は新しいエントリを作成
+                        \App\Models\TimeEntry::create([
+                            'redmine_id' => $entry['id'],
+                            'user_id' => $entry['user']['id'],
+                            'user_name' => $entry['user']['name'],
+                            'issue_id' => $entry['issue']['id'],
+                            'issue_subject' => $entry['issue']['subject'] ?? null,
+                            'hours' => $entry['hours'],
+                            'spent_on' => $entry['spent_on'],
+                            'comments' => $entry['comments'] ?? null,
+                        ]);
+                    }
+                    
+                    // ユーザー情報をデータベースに保存
+                    $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
+                    
+                } catch (\Exception $e) {
+                    Log::error('時間エントリのデータベースへの保存に失敗しました', [
+                        'entry_id' => $entry['id'],
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+        
+        $userTimeEntries = array_filter($allTimeEntries, function($entry) use ($userId) {
+            return $entry['user']['id'] == $userId;
+        });
+        
+        if (empty($userTimeEntries)) {
+            Log::warning("ユーザーID: {$userId}の時間エントリが見つかりませんでした");
+            return [];
+        }
+        
+        $issueIds = [];
+        foreach ($userTimeEntries as $entry) {
+            $issueIds[] = $entry['issue']['id'];
+        }
+        
+        $uniqueIssueIds = array_unique($issueIds);
+        $issueDetails = [];
+        
+        $issueBatches = array_chunk($uniqueIssueIds, 20);
+        
+        foreach ($issueBatches as $batch) {
+            $issuesParams = [
+                'issue_id' => implode(',', $batch),
+                'status_id' => '*',
+                'include' => 'relations'
+            ];
+            
+            $issuesResponse = $this->makeApiRequest('/issues.json', $issuesParams);
+            
+            if ($issuesResponse && isset($issuesResponse['issues'])) {
+                foreach ($issuesResponse['issues'] as $issue) {
+                    $completedStatuses = ['Closed', '完了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
+                    $isCompletedStatus = in_array($issue['status']['name'], $completedStatuses);
+                    
+                    $issueDetails[$issue['id']] = [
+                        'id' => $issue['id'],
+                        'subject' => $issue['subject'],
+                        'status' => $issue['status']['name'],
+                        'is_completed' => $isCompletedStatus,
+                        'estimated_hours' => isset($issue['estimated_hours']) ? $issue['estimated_hours'] : 0,
+                        'spent_hours' => 0 // 後で更新
+                    ];
+                }
+            }
+        }
+        
+        foreach ($userTimeEntries as $entry) {
+            $issueId = $entry['issue']['id'];
+            if (isset($issueDetails[$issueId])) {
+                $issueDetails[$issueId]['spent_hours'] += $entry['hours'];
+            }
+        }
+        
+        $result = [];
+        foreach ($issueDetails as $issueId => $issue) {
+            $isConsumed = $issue['is_completed'] && $issue['estimated_hours'] > 0 && $issue['spent_hours'] <= $issue['estimated_hours'];
+            
+            $result[] = [
+                'id' => $issue['id'],
+                'subject' => $issue['subject'],
+                'status' => $issue['status'],
+                'estimated_hours' => $issue['estimated_hours'],
+                'spent_hours' => $issue['spent_hours'],
+                'is_completed' => $issue['is_completed'],
+                'is_consumed' => $isConsumed
+            ];
+        }
+        
+        usort($result, function($a, $b) {
+            return $a['id'] - $b['id'];
+        });
+        
+        Log::info("ユーザーID: {$userId}のチケット詳細を" . count($result) . "件取得しました");
+        
+        return $result;
+    }
 }

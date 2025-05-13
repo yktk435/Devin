@@ -129,6 +129,20 @@ class RedmineService
     }
     
     /**
+     * ユーザーのチケット詳細を取得
+     * 
+     * @param int $userId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @return array
+     */
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    {
+        return $this->redmineClient->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+    }
+    
+    /**
      * Get available projects
      * 
      * @return array

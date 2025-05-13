@@ -340,7 +340,7 @@
                 }
 
                 card.innerHTML = `
-                    <div class="card user-card">
+                    <div class="card user-card" data-user-id="${user.user_id}" style="cursor: pointer;">
                         <div class="card-header">
                             <h5>${user.user_name}</h5>
                         </div>
@@ -367,7 +367,119 @@
                 `;
                 
                 container.appendChild(card);
+                
+                card.querySelector('.card.user-card').addEventListener('click', function() {
+                    showUserTicketDetails(user.user_id, user.user_name);
+                });
             });
+        }
+        
+        function showUserTicketDetails(userId, userName) {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const projectId = document.getElementById('project-id').value;
+            const loadingSpinner = document.getElementById('loading-spinner');
+            
+            const modalHtml = `
+                <div class="modal fade" id="ticketDetailsModal" tabindex="-1" aria-labelledby="ticketDetailsModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="ticketDetailsModalLabel">${userName}のチケット詳細</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="text-center my-5" id="modal-loading">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">読み込み中...</span>
+                                    </div>
+                                    <p class="mt-2">チケット情報を取得中...</p>
+                                </div>
+                                <div id="ticket-details-container" class="d-none">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>チケットID</th>
+                                                    <th>件名</th>
+                                                    <th>ステータス</th>
+                                                    <th>予定工数</th>
+                                                    <th>実績時間</th>
+                                                    <th>完了</th>
+                                                    <th>消化</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ticket-details-body">
+                                                <!-- チケット詳細がここに動的に追加されます -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existingModal = document.getElementById('ticketDetailsModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            const modal = new bootstrap.Modal(document.getElementById('ticketDetailsModal'));
+            modal.show();
+            
+            fetch(`/api/user-ticket-details?user_id=${userId}&start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(errorData.message || 'チケット詳細の取得に失敗しました');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('modal-loading').classList.add('d-none');
+                    document.getElementById('ticket-details-container').classList.remove('d-none');
+                    
+                    const tableBody = document.getElementById('ticket-details-body');
+                    tableBody.innerHTML = '';
+                    
+                    if (data.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="7" class="text-center">チケットが見つかりませんでした</td></tr>';
+                        return;
+                    }
+                    
+                    data.forEach(ticket => {
+                        const row = document.createElement('tr');
+                        const isCompleted = ticket.is_completed ? '✓' : '✗';
+                        const isConsumed = ticket.is_consumed ? '✓' : '✗';
+                        
+                        row.innerHTML = `
+                            <td>${ticket.id}</td>
+                            <td>${ticket.subject}</td>
+                            <td>${ticket.status}</td>
+                            <td>${ticket.estimated_hours}時間</td>
+                            <td>${ticket.spent_hours}時間</td>
+                            <td>${isCompleted}</td>
+                            <td>${isConsumed}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('チケット詳細取得エラー:', error);
+                    document.getElementById('modal-loading').classList.add('d-none');
+                    document.getElementById('ticket-details-container').classList.remove('d-none');
+                    
+                    const tableBody = document.getElementById('ticket-details-body');
+                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">エラーが発生しました: ${error.message}</td></tr>`;
+                });
         }
 
         function updateStatsTable(data) {
