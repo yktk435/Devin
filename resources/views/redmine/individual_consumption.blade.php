@@ -57,11 +57,11 @@
         .user-card .card-body {
             padding: 20px;
         }
-        .achievement-rate {
+        .progress-rate {
             font-size: 2rem;
             font-weight: bold;
         }
-        .achievement-label {
+        .progress-label {
             font-size: 0.9rem;
             color: #6c757d;
         }
@@ -142,11 +142,11 @@
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
-                                <h5>個人別達成率</h5>
+                                <h5>個人別進捗率</h5>
                             </div>
                             <div class="card-body">
                                 <div class="chart-container">
-                                    <canvas id="achievement-chart"></canvas>
+                                    <canvas id="progress-chart"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -173,11 +173,10 @@
                                                 <th>ユーザー</th>
                                                 <th>消化時間</th>
                                                 <th>稼働時間</th>
-                                                <th>達成率</th>
+                                                <th>進捗率</th>
                                                 <th>総チケット数</th>
                                                 <th>完了チケット数</th>
-                                                <th>消化チケット数</th>
-                                                <th>チケット消化率</th>
+                                                <th>チケット完了率</th>
                                             </tr>
                                         </thead>
                                         <tbody id="stats-table-body">
@@ -332,11 +331,11 @@
                 const card = document.createElement('div');
                 card.className = 'col-md-4 mb-4';
                 
-                let achievementClass = 'bg-success';
-                if (user.achievement_rate < 50) {
-                    achievementClass = 'bg-danger';
-                } else if (user.achievement_rate < 75) {
-                    achievementClass = 'bg-warning';
+                let progressClass = 'bg-success';
+                if (user.progress_rate < 50) {
+                    progressClass = 'bg-danger';
+                } else if (user.progress_rate < 75) {
+                    progressClass = 'bg-warning';
                 }
 
                 card.innerHTML = `
@@ -347,8 +346,8 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-6 text-center">
-                                    <div class="achievement-rate ${achievementClass} text-white p-2 rounded">${user.achievement_rate}%</div>
-                                    <div class="achievement-label">達成率</div>
+                                    <div class="progress-rate ${progressClass} text-white p-2 rounded">${user.progress_rate}%</div>
+                                    <div class="progress-label">進捗率</div>
                                 </div>
                                 <div class="col-md-6">
                                     <p class="mb-1">消化時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
@@ -358,8 +357,8 @@
                             </div>
                             <div class="mt-3">
                                 <div class="progress">
-                                    <div class="progress-bar ${achievementClass}" role="progressbar" style="width: ${user.achievement_rate}%" 
-                                        aria-valuenow="${user.achievement_rate}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    <div class="progress-bar ${progressClass}" role="progressbar" style="width: ${user.progress_rate}%" 
+                                        aria-valuenow="${user.progress_rate}" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
                             </div>
                         </div>
@@ -492,11 +491,10 @@
                     <td>${user.user_name}</td>
                     <td>${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</td>
                     <td>${parseFloat(user.working_hours).toFixed(2)}時間</td>
-                    <td>${user.achievement_rate}%</td>
+                    <td>${user.progress_rate}%</td>
                     <td>${user.total_tickets}</td>
                     <td>${user.completed_tickets}</td>
-                    <td>${user.consumed_tickets}</td>
-                    <td>${user.ticket_consumption_rate}%</td>
+                    <td>${user.ticket_completion_rate}%</td>
                 `;
                 tableBody.appendChild(row);
             });
