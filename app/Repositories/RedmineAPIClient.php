@@ -423,7 +423,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             $consumptionStats[] = [
                 'user_id' => $userData['user_id'],
                 'user_name' => $userData['user_name'],
-                'consumed_estimated_hours' => $consumedEstimatedHours, // 消化時間（消化したチケットの予定工数）
+                'consumed_estimated_hours' => $consumedEstimatedHours, // 完了時間（完了したチケットの予定工数）
                 'working_hours' => $workingHours, // 稼働時間
                 'progress_rate' => $progressRate, // 進捗率（着手したチケットのうち終了しているものの割合）
                 'total_tickets' => $totalTickets, // 総チケット数

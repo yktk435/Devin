@@ -285,7 +285,7 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: '進捗率（消化時間/稼働時間）',
+                            label: '進捗率（完了時間/稼働時間）',
                             data: progressRates,
                             backgroundColor: 'rgba(40, 167, 69, 0.7)',
                             borderColor: 'rgba(40, 167, 69, 1)',
