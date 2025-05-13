@@ -363,13 +363,14 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                     Log::info("チケット #{$issue['id']} のステータス: {$issue['status']['name']}");
                     
                     $completedStatuses = ['Closed', '完了', 'Resolved', '解決', 'Done', 'Fixed', '修正済み', 'Feedback', 'フィードバック'];
-                    $isCompleted = in_array($issue['status']['name'], $completedStatuses);
+                    $isCompletedStatus = in_array($issue['status']['name'], $completedStatuses);
+                    
                     
                     $issueDetails[$issue['id']] = [
                         'id' => $issue['id'],
                         'subject' => $issue['subject'],
                         'status' => $issue['status']['name'],
-                        'is_completed' => $isCompleted,
+                        'is_completed_status' => $isCompletedStatus, // ステータスが完了状態かどうか
                         'estimated_hours' => isset($issue['estimated_hours']) ? $issue['estimated_hours'] : 0
                     ];
                 }
@@ -389,7 +390,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                     $totalTickets++;
                     $issue = $issueDetails[$issueId];
                     
-                    if ($issue['is_completed']) {
+                    if ($issue['is_completed_status']) {
                         $completedTickets++;
                         
                         if ($issue['estimated_hours'] > 0 && $issueData['spent_hours'] <= $issue['estimated_hours']) {
@@ -397,6 +398,10 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                             $consumedEstimatedHours += $issue['estimated_hours'];
                         }
                     }
+                    
+                    Log::info("チケット #{$issue['id']} ({$issue['subject']}): ステータス={$issue['status']}, 完了状態=" . 
+                        ($issue['is_completed_status'] ? 'はい' : 'いいえ') . 
+                        ", 予定工数={$issue['estimated_hours']}, 実績時間={$issueData['spent_hours']}");
                 }
             }
             
