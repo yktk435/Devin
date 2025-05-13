@@ -515,20 +515,34 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     protected function saveUserToDatabase($redmineId, $name)
     {
         try {
+            Log::info("ユーザー情報をデータベースに保存しようとしています: {$name} (ID: {$redmineId})");
+            
             // ユーザーがすでにデータベースに存在するか確認
             $user = \App\Models\RedmineUser::where('redmine_id', $redmineId)->first();
             
             if (!$user) {
                 // 存在しない場合は新しいユーザーを作成
-                $user = \App\Models\RedmineUser::create([
-                    'redmine_id' => $redmineId,
-                    'name' => $name,
-                ]);
+                Log::info("新しいユーザーを作成します: {$name} (ID: {$redmineId})");
+                
+                $user = new \App\Models\RedmineUser();
+                $user->redmine_id = $redmineId;
+                $user->name = $name;
+                $user->save();
+                
                 Log::info("新しいユーザーをデータベースに保存しました: {$name} (ID: {$redmineId})");
             } else if ($user->name !== $name) {
                 $user->name = $name;
                 $user->save();
                 Log::info("ユーザー情報を更新しました: {$name} (ID: {$redmineId})");
+            } else {
+                Log::info("ユーザーはすでに存在し、更新の必要はありません: {$name} (ID: {$redmineId})");
+            }
+            
+            $checkUser = \App\Models\RedmineUser::where('redmine_id', $redmineId)->first();
+            if ($checkUser) {
+                Log::info("ユーザーが正常にデータベースに保存されました: {$checkUser->name} (ID: {$checkUser->redmine_id})");
+            } else {
+                Log::warning("ユーザーの保存を確認できませんでした: {$name} (ID: {$redmineId})");
             }
             
             return $user;
@@ -536,7 +550,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             Log::error('ユーザー情報のデータベースへの保存に失敗しました', [
                 'redmine_id' => $redmineId,
                 'name' => $name,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return null;
         }

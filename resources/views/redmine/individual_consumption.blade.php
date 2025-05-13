@@ -198,7 +198,14 @@
                 fetchAndUpdateData();
             });
 
-            fetchAndUpdateData();
+            @if(isset($initialData) && !empty($initialData))
+                const initialData = @json($initialData);
+                updateAchievementChart(initialData);
+                updateUserCards(initialData);
+                updateStatsTable(initialData);
+            @else
+                fetchAndUpdateData();
+            @endif
         });
 
         function fetchAndUpdateData() {

@@ -96,7 +96,12 @@ class RedmineController extends Controller
     public function individualConsumption()
     {
         $projects = $this->redmineService->getProjects();
-        return view('redmine.individual_consumption', compact('projects'));
+        
+        $startDate = Carbon::now()->subDays(30)->format('Y-m-d');
+        $endDate = Carbon::now()->format('Y-m-d');
+        $initialData = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate);
+        
+        return view('redmine.individual_consumption', compact('projects', 'initialData'));
     }
     
     /**
