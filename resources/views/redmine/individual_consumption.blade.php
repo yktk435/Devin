@@ -124,7 +124,12 @@
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
-                            <button id="update-btn" class="btn btn-primary w-100">更新</button>
+                            <button id="update-btn" class="btn btn-primary w-100 position-relative">
+                                更新
+                                <span id="loading-spinner" class="spinner-border spinner-border-sm position-absolute d-none" style="right: 10px;" role="status">
+                                    <span class="visually-hidden">読み込み中...</span>
+                                </span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -200,6 +205,11 @@
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
             const projectId = document.getElementById('project-id').value;
+            const loadingSpinner = document.getElementById('loading-spinner');
+            
+            loadingSpinner.classList.remove('d-none');
+            
+            document.getElementById('update-btn').disabled = true;
 
             fetch(`/api/individual-consumption-stats?start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
                 .then(response => response.json())
@@ -208,7 +218,12 @@
                     updateUserCards(data);
                     updateStatsTable(data);
                 })
-                .catch(error => console.error('個人別消化率データ取得エラー:', error));
+                .catch(error => console.error('個人別消化率データ取得エラー:', error))
+                .finally(() => {
+                    loadingSpinner.classList.add('d-none');
+                    
+                    document.getElementById('update-btn').disabled = false;
+                });
         }
 
         function updateAchievementChart(data) {
