@@ -116,8 +116,22 @@ class RedmineController extends Controller
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
         $projectId = $request->input('project_id');
 
-        $stats = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate, $projectId);
-
-        return response()->json($stats);
+        try {
+            $stats = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate, $projectId);
+            
+            if (!$stats) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'データの取得に失敗しました。'
+                ], 500);
+            }
+            
+            return response()->json($stats);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'エラーが発生しました: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

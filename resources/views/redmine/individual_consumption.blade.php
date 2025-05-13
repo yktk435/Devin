@@ -104,6 +104,9 @@
             <div class="col-md-10 main-content">
                 <h1 class="mb-4">Redmine 工数進捗率レポート - 個人別チケット消化率</h1>
                 
+                <!-- フラッシュメッセージ -->
+                <div id="flash-message" class="alert d-none mb-3" role="alert"></div>
+                
                 <div class="filter-section">
                     <div class="row">
                         <div class="col-md-3">
@@ -213,24 +216,57 @@
             const endDate = document.getElementById('end-date').value;
             const projectId = document.getElementById('project-id').value;
             const loadingSpinner = document.getElementById('loading-spinner');
+            const flashMessage = document.getElementById('flash-message');
+            
+            flashMessage.classList.add('d-none');
+            flashMessage.classList.remove('alert-success', 'alert-danger');
+            flashMessage.textContent = '';
             
             loadingSpinner.classList.remove('d-none');
             
             document.getElementById('update-btn').disabled = true;
 
             fetch(`/api/individual-consumption-stats?start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
-                .then(response => response.json())
-                .then(data => {
-                    updateAchievementChart(data);
-                    updateUserCards(data);
-                    updateStatsTable(data);
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(errorData.message || 'データの取得に失敗しました');
+                        });
+                    }
+                    return response.json();
                 })
-                .catch(error => console.error('個人別消化率データ取得エラー:', error))
+                .then(data => {
+                    if (data.error) {
+                        showFlashMessage('danger', data.message || 'データの取得に失敗しました');
+                    } else {
+                        showFlashMessage('success', 'データを正常に取得しました');
+                        
+                        updateAchievementChart(data);
+                        updateUserCards(data);
+                        updateStatsTable(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('個人別消化率データ取得エラー:', error);
+                    showFlashMessage('danger', error.message || 'データの取得中にエラーが発生しました');
+                })
                 .finally(() => {
                     loadingSpinner.classList.add('d-none');
                     
                     document.getElementById('update-btn').disabled = false;
                 });
+        }
+        
+        function showFlashMessage(type, message) {
+            const flashMessage = document.getElementById('flash-message');
+            flashMessage.classList.remove('d-none');
+            flashMessage.classList.remove('alert-success', 'alert-danger');
+            flashMessage.classList.add(`alert-${type}`);
+            flashMessage.textContent = message;
+            
+            setTimeout(() => {
+                flashMessage.classList.add('d-none');
+            }, 5000);
         }
 
         function updateAchievementChart(data) {
