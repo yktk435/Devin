@@ -17,8 +17,9 @@ class RedmineServiceProvider extends ServiceProvider
     {
         $this->app->bind(RedmineAPIClientInterface::class, function ($app) {
             $apiKey = env('REDMINE_API_KEY', '');
+            $apiUrl = env('REDMINE_API_URL', '');
             
-            if (!empty($apiKey)) {
+            if (!empty($apiKey) && !empty($apiUrl)) {
                 return new \App\Repositories\RedmineAPIClient();
             }
             
