@@ -302,6 +302,10 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                         'comments' => $entry['comments'] ?? null,
                     ]);
                 }
+                
+                // ユーザー情報をデータベースに保存
+                $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
+                
             } catch (\Exception $e) {
                 Log::error('時間エントリのデータベースへの保存に失敗しました', [
                     'entry_id' => $entry['id'],
@@ -494,5 +498,42 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         }
         
         return $projects;
+    }
+    
+    /**
+     * ユーザー情報をデータベースに保存
+     * 
+     * @param int $redmineId
+     * @param string $name
+     * @return \App\Models\RedmineUser
+     */
+    protected function saveUserToDatabase($redmineId, $name)
+    {
+        try {
+            // ユーザーがすでにデータベースに存在するか確認
+            $user = \App\Models\RedmineUser::where('redmine_id', $redmineId)->first();
+            
+            if (!$user) {
+                // 存在しない場合は新しいユーザーを作成
+                $user = \App\Models\RedmineUser::create([
+                    'redmine_id' => $redmineId,
+                    'name' => $name,
+                ]);
+                Log::info("新しいユーザーをデータベースに保存しました: {$name} (ID: {$redmineId})");
+            } else if ($user->name !== $name) {
+                $user->name = $name;
+                $user->save();
+                Log::info("ユーザー情報を更新しました: {$name} (ID: {$redmineId})");
+            }
+            
+            return $user;
+        } catch (\Exception $e) {
+            Log::error('ユーザー情報のデータベースへの保存に失敗しました', [
+                'redmine_id' => $redmineId,
+                'name' => $name,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 }
