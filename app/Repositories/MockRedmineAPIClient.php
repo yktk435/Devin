@@ -47,7 +47,7 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
     }
     
     /**
-     * Get individual consumption rate statistics
+     * Get individual progress rate statistics
      * 
      * @param string $startDate
      * @param string $endDate
@@ -163,7 +163,7 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
     }
     
     /**
-     * Generate mock individual consumption rate statistics for prototype
+     * Generate mock individual progress rate statistics for prototype
      * 
      * @param string $startDate
      * @param string $endDate

@@ -89,35 +89,35 @@ class RedmineController extends Controller
     }
     
     /**
-     * Display the individual consumption rate page
+     * Display the individual progress rate page
      *
      * @return \Illuminate\View\View
      */
-    public function individualConsumption()
+    public function individualProgress()
     {
         $projects = $this->redmineService->getProjects();
         
         $startDate = Carbon::now()->subDays(30)->format('Y-m-d');
         $endDate = Carbon::now()->format('Y-m-d');
-        $initialData = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate);
+        $initialData = $this->redmineService->getIndividualProgressStats($startDate, $endDate);
         
-        return view('redmine.individual_consumption', compact('projects', 'initialData'));
+        return view('redmine.individual_progress', compact('projects', 'initialData'));
     }
     
     /**
-     * Get individual consumption rate statistics
+     * Get individual progress rate statistics
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getIndividualConsumptionStats(Request $request)
+    public function getIndividualProgressStats(Request $request)
     {
         $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
         $projectId = $request->input('project_id');
 
         try {
-            $stats = $this->redmineService->getIndividualConsumptionStats($startDate, $endDate, $projectId);
+            $stats = $this->redmineService->getIndividualProgressStats($startDate, $endDate, $projectId);
             
             if (!$stats) {
                 return response()->json([

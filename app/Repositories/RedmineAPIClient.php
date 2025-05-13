@@ -216,14 +216,14 @@ class RedmineAPIClient implements RedmineAPIClientInterface
     }
 
     /**
-     * Redmine APIから個人消費率統計を取得
+     * Redmine APIから個人進捗率統計を取得
      *
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
      * @return array|null
      */
-    public function getIndividualConsumptionStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
     {
         // まずデータベースから時間エントリを取得
         $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);

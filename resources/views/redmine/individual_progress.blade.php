@@ -93,7 +93,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="{{ route('individual-consumption') }}">
+                        <a class="nav-link active" href="{{ route('individual-progress') }}">
                             <i class="bi bi-person-fill me-2"></i>個人別進捗率
                         </a>
                     </li>
@@ -171,7 +171,7 @@
                                         <thead>
                                             <tr>
                                                 <th>ユーザー</th>
-                                                <th>消化時間</th>
+                                                <th>完了時間</th>
                                                 <th>稼働時間</th>
                                                 <th>進捗率</th>
                                                 <th>総チケット数</th>
@@ -225,7 +225,7 @@
             
             document.getElementById('update-btn').disabled = true;
 
-            fetch(`/api/individual-consumption-stats?start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
+            fetch(`/api/individual-progress-stats?start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(errorData => {
@@ -350,7 +350,7 @@
                                     <div class="progress-label">進捗率</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <p class="mb-1">消化時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
+                                    <p class="mb-1">完了時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">稼働時間: ${parseFloat(user.working_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">完了チケット: ${user.completed_tickets}/${user.total_tickets}</p>
                                 </div>
