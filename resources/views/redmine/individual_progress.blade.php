@@ -110,12 +110,8 @@
                 <div class="filter-section">
                     <div class="row">
                         <div class="col-md-3">
-                            <label for="start-date" class="form-label">開始日</label>
-                            <input type="date" id="start-date" class="form-control" value="{{ date('Y-m-d', strtotime('-30 days')) }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="end-date" class="form-label">終了日</label>
-                            <input type="date" id="end-date" class="form-control" value="{{ date('Y-m-d') }}">
+                            <label for="month-selector" class="form-label">年月</label>
+                            <input type="month" id="month-selector" class="form-control" value="{{ date('Y-m') }}">
                         </div>
                         <div class="col-md-3">
                             <label for="project-id" class="form-label">プロジェクト</label>
@@ -211,11 +207,19 @@
         });
 
         function fetchAndUpdateData() {
-            const startDate = document.getElementById('start-date').value;
-            const endDate = document.getElementById('end-date').value;
+            let selectedMonth = document.getElementById('month-selector').value;
             const projectId = document.getElementById('project-id').value;
             const loadingSpinner = document.getElementById('loading-spinner');
             const flashMessage = document.getElementById('flash-message');
+            
+            let startDate = '';
+            let endDate = '';
+            if (selectedMonth) {
+                startDate = selectedMonth + '-01'; // 月の初日
+                const monthObj = new Date(selectedMonth + '-01');
+                const lastDay = new Date(monthObj.getFullYear(), monthObj.getMonth() + 1, 0).getDate();
+                endDate = selectedMonth + '-' + lastDay; // 月の最終日
+            }
             
             flashMessage.classList.add('d-none');
             flashMessage.classList.remove('alert-success', 'alert-danger');
@@ -225,7 +229,7 @@
             
             document.getElementById('update-btn').disabled = true;
 
-            fetch(`/api/individual-progress-stats?start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
+            fetch(`/api/individual-progress-stats?selected_month=${selectedMonth}&project_id=${projectId}`)
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(errorData => {
@@ -374,10 +378,18 @@
         }
         
         function showUserTicketDetails(userId, userName) {
-            const startDate = document.getElementById('start-date').value;
-            const endDate = document.getElementById('end-date').value;
+            let selectedMonth = document.getElementById('month-selector').value;
             const projectId = document.getElementById('project-id').value;
             const loadingSpinner = document.getElementById('loading-spinner');
+            
+            let startDate = '';
+            let endDate = '';
+            if (selectedMonth) {
+                startDate = selectedMonth + '-01'; // 月の初日
+                const monthObj = new Date(selectedMonth + '-01');
+                const lastDay = new Date(monthObj.getFullYear(), monthObj.getMonth() + 1, 0).getDate();
+                endDate = selectedMonth + '-' + lastDay; // 月の最終日
+            }
             
             const modalHtml = `
                 <div class="modal fade" id="ticketDetailsModal" tabindex="-1" aria-labelledby="ticketDetailsModalLabel" aria-hidden="true">
@@ -433,7 +445,7 @@
             const modal = new bootstrap.Modal(document.getElementById('ticketDetailsModal'));
             modal.show();
             
-            fetch(`/api/user-ticket-details?user_id=${userId}&start_date=${startDate}&end_date=${endDate}&project_id=${projectId}`)
+            fetch(`/api/user-ticket-details?user_id=${userId}&selected_month=${selectedMonth}&project_id=${projectId}`)
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(errorData => {
