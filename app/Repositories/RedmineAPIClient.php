@@ -373,21 +373,43 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         $issueIds = [];
         $userDueTickets = []; // ユーザーごとの期限付きチケット
 
+        $excludeKeywords = ['コアデイ', '朝会', '有給'];
+        
         foreach ($allTimeEntries as $entry) {
             $userId = $entry['user']['id'];
             $userName = $entry['user']['name'];
             $issueId = $entry['issue']['id'];
             $hours = $entry['hours'];
-
+            $comments = isset($entry['comments']) ? $entry['comments'] : '';
+            $issueSubject = isset($entry['issue']['subject']) ? $entry['issue']['subject'] : '';
+            
+            $shouldExclude = false;
+            foreach ($excludeKeywords as $keyword) {
+                if (mb_stripos($comments, $keyword) !== false || mb_stripos($issueSubject, $keyword) !== false) {
+                    $shouldExclude = true;
+                    Log::info("除外キーワード '{$keyword}' が含まれているため、チケット #{$issueId} ({$issueSubject}) の時間エントリを除外します。コメント: {$comments}");
+                    break;
+                }
+            }
+            
             if (!isset($userTimeEntries[$userId])) {
                 $userTimeEntries[$userId] = [
                     'user_id' => $userId,
                     'user_name' => $userName,
                     'working_hours' => 0,
+                    'excluded_hours' => 0,
                     'issues' => []
                 ];
                 
                 $userDueTickets[$userId] = [];
+            }
+            
+            if ($shouldExclude) {
+                if (!isset($userTimeEntries[$userId]['excluded_hours'])) {
+                    $userTimeEntries[$userId]['excluded_hours'] = 0;
+                }
+                $userTimeEntries[$userId]['excluded_hours'] += $hours;
+                continue;
             }
 
             $userTimeEntries[$userId]['working_hours'] += $hours;
@@ -523,6 +545,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             $totalTickets = count($baseTickets);
             
             $workingHours = $userData['working_hours'];
+            $excludedHours = isset($userData['excluded_hours']) ? $userData['excluded_hours'] : 0;
             
             $dateObj = Carbon::parse($startDate);
             $monthWorkingHours = $this->calculateMonthWorkingHours($dateObj);
@@ -542,6 +565,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'user_name' => $userData['user_name'],
                 'consumed_estimated_hours' => $consumedEstimatedHours, // 完了時間（完了したチケットの予定工数）
                 'working_hours' => $workingHours, // 稼働時間
+                'excluded_hours' => $excludedHours, // 除外された時間（コアデイ、朝会、有給）
                 'progress_rate' => $progressRate, // 進捗率（完了チケットの予定工数 / 月の稼働時間）
                 'total_tickets' => $totalTickets, // 総チケット数
                 'completed_tickets' => $completedTickets, // 完了チケット数
