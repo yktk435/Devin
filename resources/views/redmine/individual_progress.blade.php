@@ -110,12 +110,12 @@
                 <div class="filter-section">
                     <div class="row">
                         <div class="col-md-3">
-                            <label for="start-date" class="form-label">開始日</label>
-                            <input type="date" id="start-date" class="form-control" value="{{ date('Y-m-d', strtotime('-30 days')) }}">
+                            <label for="start-date" class="form-label">開始月</label>
+                            <input type="month" id="start-date" class="form-control" value="{{ date('Y-m', strtotime('-3 months')) }}">
                         </div>
                         <div class="col-md-3">
-                            <label for="end-date" class="form-label">終了日</label>
-                            <input type="date" id="end-date" class="form-control" value="{{ date('Y-m-d') }}">
+                            <label for="end-date" class="form-label">終了月</label>
+                            <input type="month" id="end-date" class="form-control" value="{{ date('Y-m') }}">
                         </div>
                         <div class="col-md-3">
                             <label for="project-id" class="form-label">プロジェクト</label>
@@ -211,11 +211,20 @@
         });
 
         function fetchAndUpdateData() {
-            const startDate = document.getElementById('start-date').value;
-            const endDate = document.getElementById('end-date').value;
+            let startDate = document.getElementById('start-date').value;
+            let endDate = document.getElementById('end-date').value;
             const projectId = document.getElementById('project-id').value;
             const loadingSpinner = document.getElementById('loading-spinner');
             const flashMessage = document.getElementById('flash-message');
+            
+            if (startDate) {
+                startDate = startDate + '-01'; // 月の初日
+            }
+            if (endDate) {
+                const endDateObj = new Date(endDate + '-01');
+                const lastDay = new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate();
+                endDate = endDate + '-' + lastDay; // 月の最終日
+            }
             
             flashMessage.classList.add('d-none');
             flashMessage.classList.remove('alert-success', 'alert-danger');
@@ -374,10 +383,19 @@
         }
         
         function showUserTicketDetails(userId, userName) {
-            const startDate = document.getElementById('start-date').value;
-            const endDate = document.getElementById('end-date').value;
+            let startDate = document.getElementById('start-date').value;
+            let endDate = document.getElementById('end-date').value;
             const projectId = document.getElementById('project-id').value;
             const loadingSpinner = document.getElementById('loading-spinner');
+            
+            if (startDate) {
+                startDate = startDate + '-01'; // 月の初日
+            }
+            if (endDate) {
+                const endDateObj = new Date(endDate + '-01');
+                const lastDay = new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate();
+                endDate = endDate + '-' + lastDay; // 月の最終日
+            }
             
             const modalHtml = `
                 <div class="modal fade" id="ticketDetailsModal" tabindex="-1" aria-labelledby="ticketDetailsModalLabel" aria-hidden="true">

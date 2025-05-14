@@ -97,8 +97,8 @@ class RedmineController extends Controller
     {
         $projects = $this->redmineService->getProjects();
         
-        $startDate = Carbon::now()->subDays(30)->format('Y-m-d');
-        $endDate = Carbon::now()->format('Y-m-d');
+        $startDate = Carbon::now()->subMonths(3)->startOfMonth()->format('Y-m-d');
+        $endDate = Carbon::now()->endOfMonth()->format('Y-m-d');
         $initialData = $this->redmineService->getIndividualProgressStats($startDate, $endDate);
         
         return view('redmine.individual_progress', compact('projects', 'initialData'));
@@ -112,8 +112,8 @@ class RedmineController extends Controller
      */
     public function getIndividualProgressStats(Request $request)
     {
-        $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
-        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+        $startDate = $request->input('start_date', Carbon::now()->subMonths(3)->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
         $projectId = $request->input('project_id');
 
         try {
@@ -144,8 +144,8 @@ class RedmineController extends Controller
     public function getUserTicketDetails(Request $request)
     {
         $userId = $request->input('user_id');
-        $startDate = $request->input('start_date', Carbon::now()->subMonths(1)->format('Y-m-d'));
-        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+        $startDate = $request->input('start_date', Carbon::now()->subMonths(3)->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
         $projectId = $request->input('project_id');
         
         if (!$userId) {
