@@ -97,8 +97,9 @@ class RedmineController extends Controller
     {
         $projects = $this->redmineService->getProjects();
         
-        $startDate = Carbon::now()->subMonths(3)->startOfMonth()->format('Y-m-d');
-        $endDate = Carbon::now()->endOfMonth()->format('Y-m-d');
+        $currentMonth = Carbon::now();
+        $startDate = $currentMonth->copy()->startOfMonth()->format('Y-m-d');
+        $endDate = $currentMonth->copy()->endOfMonth()->format('Y-m-d');
         $initialData = $this->redmineService->getIndividualProgressStats($startDate, $endDate);
         
         return view('redmine.individual_progress', compact('projects', 'initialData'));
@@ -112,9 +113,18 @@ class RedmineController extends Controller
      */
     public function getIndividualProgressStats(Request $request)
     {
-        $startDate = $request->input('start_date', Carbon::now()->subMonths(3)->startOfMonth()->format('Y-m-d'));
-        $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        $selectedMonth = $request->input('selected_month');
         $projectId = $request->input('project_id');
+        
+        if ($selectedMonth) {
+            $date = Carbon::createFromFormat('Y-m', $selectedMonth);
+            $startDate = $date->copy()->startOfMonth()->format('Y-m-d');
+            $endDate = $date->copy()->endOfMonth()->format('Y-m-d');
+        } else {
+            $currentMonth = Carbon::now();
+            $startDate = $currentMonth->copy()->startOfMonth()->format('Y-m-d');
+            $endDate = $currentMonth->copy()->endOfMonth()->format('Y-m-d');
+        }
 
         try {
             $stats = $this->redmineService->getIndividualProgressStats($startDate, $endDate, $projectId);
@@ -144,9 +154,18 @@ class RedmineController extends Controller
     public function getUserTicketDetails(Request $request)
     {
         $userId = $request->input('user_id');
-        $startDate = $request->input('start_date', Carbon::now()->subMonths(3)->startOfMonth()->format('Y-m-d'));
-        $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        $selectedMonth = $request->input('selected_month');
         $projectId = $request->input('project_id');
+        
+        if ($selectedMonth) {
+            $date = Carbon::createFromFormat('Y-m', $selectedMonth);
+            $startDate = $date->copy()->startOfMonth()->format('Y-m-d');
+            $endDate = $date->copy()->endOfMonth()->format('Y-m-d');
+        } else {
+            $currentMonth = Carbon::now();
+            $startDate = $currentMonth->copy()->startOfMonth()->format('Y-m-d');
+            $endDate = $currentMonth->copy()->endOfMonth()->format('Y-m-d');
+        }
         
         if (!$userId) {
             return response()->json([
