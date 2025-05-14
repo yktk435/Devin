@@ -417,7 +417,18 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             }
 
             $workingHours = $userData['working_hours'];
-            $progressRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
+            
+            $dateObj = Carbon::parse($startDate);
+            $monthWorkingHours = $this->calculateMonthWorkingHours($dateObj);
+            
+            $completedEstimatedHours = 0;
+            foreach ($userData['issues'] as $issueId => $issueData) {
+                if (isset($issueDetails[$issueId]) && $issueDetails[$issueId]['is_completed_status'] && $issueDetails[$issueId]['estimated_hours'] > 0) {
+                    $completedEstimatedHours += $issueDetails[$issueId]['estimated_hours'];
+                }
+            }
+            
+            $progressRate = ($monthWorkingHours > 0) ? round(($completedEstimatedHours / $monthWorkingHours) * 100) : 0;
             $ticketCompletionRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
 
             $consumptionStats[] = [
@@ -425,14 +436,65 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'user_name' => $userData['user_name'],
                 'consumed_estimated_hours' => $consumedEstimatedHours, // 完了時間（完了したチケットの予定工数）
                 'working_hours' => $workingHours, // 稼働時間
-                'progress_rate' => $progressRate, // 進捗率（着手したチケットのうち終了しているものの割合）
+                'progress_rate' => $progressRate, // 進捗率（完了チケットの予定工数 / 月の稼働時間）
                 'total_tickets' => $totalTickets, // 総チケット数
                 'completed_tickets' => $completedTickets, // 完了チケット数
-                'ticket_completion_rate' => $ticketCompletionRate // チケット完了率
+                'ticket_completion_rate' => $ticketCompletionRate, // チケット完了率
+                'completed_estimated_hours' => $completedEstimatedHours, // 完了チケットの予定工数合計
+                'month_working_hours' => $monthWorkingHours // 月の稼働時間（土日祝日を除く）
             ];
         }
 
         return $consumptionStats;
+    }
+
+    /**
+     * 指定した月の稼働時間を計算（土日祝日を除いた日の合計×8h）
+     *
+     * @param Carbon $date
+     * @return int
+     */
+    protected function calculateMonthWorkingHours(Carbon $date)
+    {
+        $startOfMonth = $date->copy()->startOfMonth();
+        $endOfMonth = $date->copy()->endOfMonth();
+        $currentDate = $startOfMonth->copy();
+        
+        $holidays = [
+            '2025-01-01', // 元日
+            '2025-01-13', // 成人の日
+            '2025-02-11', // 建国記念日
+            '2025-02-23', // 天皇誕生日
+            '2025-03-21', // 春分の日
+            '2025-04-29', // 昭和の日
+            '2025-05-03', // 憲法記念日
+            '2025-05-04', // みどりの日
+            '2025-05-05', // こどもの日
+            '2025-05-06', // 振替休日
+            '2025-07-21', // 海の日
+            '2025-08-11', // 山の日
+            '2025-09-15', // 敬老の日
+            '2025-09-23', // 秋分の日
+            '2025-10-13', // スポーツの日
+            '2025-11-03', // 文化の日
+            '2025-11-23', // 勤労感謝の日
+            '2025-12-23', // 天皇誕生日
+        ];
+        
+        $workingDays = 0;
+        
+        while ($currentDate->lte($endOfMonth)) {
+            $dayOfWeek = $currentDate->dayOfWeek;
+            $dateString = $currentDate->format('Y-m-d');
+            
+            if ($dayOfWeek !== 0 && $dayOfWeek !== 6 && !in_array($dateString, $holidays)) {
+                $workingDays++;
+            }
+            
+            $currentDate->addDay();
+        }
+        
+        return $workingDays * 8;
     }
 
     /**
