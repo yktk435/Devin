@@ -156,6 +156,8 @@ class RedmineController extends Controller
         $userId = $request->input('user_id');
         $selectedMonth = $request->input('selected_month');
         $projectId = $request->input('project_id');
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 10);
         
         if ($selectedMonth) {
             $date = Carbon::createFromFormat('Y-m', $selectedMonth);
@@ -175,16 +177,30 @@ class RedmineController extends Controller
         }
         
         try {
-            $ticketDetails = $this->redmineService->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+            $allTicketDetails = $this->redmineService->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
             
-            if (!$ticketDetails) {
+            if (!$allTicketDetails) {
                 return response()->json([
                     'error' => true,
                     'message' => 'チケット詳細の取得に失敗しました。'
                 ], 500);
             }
             
-            return response()->json($ticketDetails);
+            $totalItems = count($allTicketDetails);
+            $totalPages = ceil($totalItems / $perPage);
+            
+            $offset = ($page - 1) * $perPage;
+            $currentPageItems = array_slice($allTicketDetails, $offset, $perPage);
+            
+            return response()->json([
+                'tickets' => $currentPageItems,
+                'pagination' => [
+                    'total_items' => $totalItems,
+                    'total_pages' => $totalPages,
+                    'current_page' => (int)$page,
+                    'per_page' => (int)$perPage
+                ]
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => true,
