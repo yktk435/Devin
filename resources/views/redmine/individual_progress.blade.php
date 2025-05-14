@@ -357,8 +357,51 @@
                                     <p class="mb-1">完了時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">稼働時間: ${parseFloat(user.working_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">完了チケット: ${user.completed_tickets}/${user.total_tickets}</p>
+                                    ${user.excluded_hours > 0 ? `<p class="mb-1">除外時間: ${parseFloat(user.excluded_hours).toFixed(2)}時間</p>` : ''}
                                 </div>
                             </div>
+                            
+                            <!-- 進捗率の計算値表示 -->
+                            <div class="mt-3 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title">進捗率の計算</h6>
+                                        <p class="mb-1 small">完了チケット予定工数: ${parseFloat(user.completed_estimated_hours).toFixed(2)}時間</p>
+                                        <p class="mb-1 small">月の稼働時間: ${parseFloat(user.month_working_hours).toFixed(2)}時間</p>
+                                        <p class="mb-1 small">計算式: (${parseFloat(user.completed_estimated_hours).toFixed(2)} / ${parseFloat(user.month_working_hours).toFixed(2)}) × 100 = ${user.progress_rate}%</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 除外チケット情報表示 -->
+                            ${user.excluded_tickets && user.excluded_tickets.length > 0 ? `
+                            <div class="mt-2">
+                                <h6>除外チケット情報</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>件名</th>
+                                                <th>時間</th>
+                                                <th>理由</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${user.excluded_tickets.map(ticket => `
+                                                <tr>
+                                                    <td>${ticket.id}</td>
+                                                    <td>${ticket.subject}</td>
+                                                    <td>${parseFloat(ticket.hours).toFixed(2)}時間</td>
+                                                    <td>${ticket.reason}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
                             <div class="mt-3">
                                 <div class="progress">
                                     <div class="progress-bar ${progressClass}" role="progressbar" style="width: ${user.progress_rate}%" 

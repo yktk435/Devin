@@ -384,9 +384,11 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             $issueSubject = isset($entry['issue']['subject']) ? $entry['issue']['subject'] : '';
             
             $shouldExclude = false;
+            $excludeReason = '';
             foreach ($excludeKeywords as $keyword) {
                 if (mb_stripos($comments, $keyword) !== false || mb_stripos($issueSubject, $keyword) !== false) {
                     $shouldExclude = true;
+                    $excludeReason = $keyword;
                     Log::info("除外キーワード '{$keyword}' が含まれているため、チケット #{$issueId} ({$issueSubject}) の時間エントリを除外します。コメント: {$comments}");
                     break;
                 }
@@ -398,6 +400,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                     'user_name' => $userName,
                     'working_hours' => 0,
                     'excluded_hours' => 0,
+                    'excluded_tickets' => [],
                     'issues' => []
                 ];
                 
@@ -409,6 +412,16 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                     $userTimeEntries[$userId]['excluded_hours'] = 0;
                 }
                 $userTimeEntries[$userId]['excluded_hours'] += $hours;
+                
+                if (!isset($userTimeEntries[$userId]['excluded_tickets'][$issueId])) {
+                    $userTimeEntries[$userId]['excluded_tickets'][$issueId] = [
+                        'id' => $issueId,
+                        'subject' => $issueSubject,
+                        'hours' => 0,
+                        'reason' => $excludeReason
+                    ];
+                }
+                $userTimeEntries[$userId]['excluded_tickets'][$issueId]['hours'] += $hours;
                 continue;
             }
 
@@ -560,12 +573,20 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             $progressRate = ($monthWorkingHours > 0) ? round(($completedEstimatedHours / $monthWorkingHours) * 100) : 0;
             $ticketCompletionRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
 
+            $excludedTicketsArray = [];
+            if (isset($userData['excluded_tickets'])) {
+                foreach ($userData['excluded_tickets'] as $ticketId => $ticketData) {
+                    $excludedTicketsArray[] = $ticketData;
+                }
+            }
+            
             $consumptionStats[] = [
                 'user_id' => $userData['user_id'],
                 'user_name' => $userData['user_name'],
                 'consumed_estimated_hours' => $consumedEstimatedHours, // 完了時間（完了したチケットの予定工数）
                 'working_hours' => $workingHours, // 稼働時間
                 'excluded_hours' => $excludedHours, // 除外された時間（コアデイ、朝会、有給）
+                'excluded_tickets' => $excludedTicketsArray, // 除外されたチケット情報
                 'progress_rate' => $progressRate, // 進捗率（完了チケットの予定工数 / 月の稼働時間）
                 'total_tickets' => $totalTickets, // 総チケット数
                 'completed_tickets' => $completedTickets, // 完了チケット数
