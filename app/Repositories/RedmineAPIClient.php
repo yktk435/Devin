@@ -771,11 +771,13 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
+     * @param int $page
+     * @param int $perPage
      * @return array|null
      */
-    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null, $page = 1, $perPage = 10)
     {
-        Log::info("ユーザーID: {$userId}のチケット詳細を取得します（期間: {$startDate}から{$endDate}）");
+        Log::info("ユーザーID: {$userId}のチケット詳細を取得します（期間: {$startDate}から{$endDate}、ページ: {$page}、表示件数: {$perPage}）");
 
         // まずデータベースから時間エントリを取得
         $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
@@ -931,11 +933,11 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             }
         }
 
-        $result = [];
+        $allTickets = [];
         foreach ($issueDetails as $issueId => $issue) {
             $isConsumed = $issue['is_completed'] && $issue['estimated_hours'] > 0 && $issue['spent_hours'] <= $issue['estimated_hours'];
 
-            $result[] = [
+            $allTickets[] = [
                 'id' => $issue['id'],
                 'subject' => $issue['subject'],
                 'status' => $issue['status'],
@@ -946,13 +948,26 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             ];
         }
 
-        usort($result, function($a, $b) {
+        usort($allTickets, function($a, $b) {
             return $a['id'] - $b['id'];
         });
 
-        Log::info("ユーザーID: {$userId}のチケット詳細を" . count($result) . "件取得しました");
+        $totalItems = count($allTickets);
+        Log::info("ユーザーID: {$userId}のチケット詳細を" . $totalItems . "件取得しました");
 
-        return $result;
+        $totalPages = ceil($totalItems / $perPage);
+        $offset = ($page - 1) * $perPage;
+        $currentPageItems = array_slice($allTickets, $offset, $perPage);
+
+        return [
+            'tickets' => $currentPageItems,
+            'pagination' => [
+                'total_items' => $totalItems,
+                'total_pages' => $totalPages,
+                'current_page' => (int)$page,
+                'per_page' => (int)$perPage
+            ]
+        ];
     }
 
     /**
