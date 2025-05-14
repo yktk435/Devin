@@ -425,6 +425,18 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <div>
+                                            <span id="pagination-info"></span>
+                                        </div>
+                                        <div>
+                                            <nav aria-label="チケット詳細ページネーション">
+                                                <ul class="pagination" id="ticket-pagination">
+                                                    <!-- ページネーションリンクがここに動的に追加されます -->
+                                                </ul>
+                                            </nav>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -445,7 +457,14 @@
             const modal = new bootstrap.Modal(document.getElementById('ticketDetailsModal'));
             modal.show();
             
-            fetch(`/api/user-ticket-details?user_id=${userId}&selected_month=${selectedMonth}&project_id=${projectId}`)
+            loadTicketDetails(userId, selectedMonth, projectId, 1);
+        }
+        
+        function loadTicketDetails(userId, selectedMonth, projectId, page = 1, perPage = 10) {
+            document.getElementById('modal-loading').classList.remove('d-none');
+            document.getElementById('ticket-details-container').classList.add('d-none');
+            
+            fetch(`/api/user-ticket-details?user_id=${userId}&selected_month=${selectedMonth}&project_id=${projectId}&page=${page}&per_page=${perPage}`)
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(errorData => {
@@ -461,12 +480,14 @@
                     const tableBody = document.getElementById('ticket-details-body');
                     tableBody.innerHTML = '';
                     
-                    if (data.length === 0) {
+                    if (!data.tickets || data.tickets.length === 0) {
                         tableBody.innerHTML = '<tr><td colspan="7" class="text-center">チケットが見つかりませんでした</td></tr>';
+                        document.getElementById('pagination-info').textContent = '';
+                        document.getElementById('ticket-pagination').innerHTML = '';
                         return;
                     }
                     
-                    data.forEach(ticket => {
+                    data.tickets.forEach(ticket => {
                         const row = document.createElement('tr');
                         const isCompleted = ticket.is_completed ? '✓' : '✗';
                         const isCompletedStatus = ticket.is_completed ? '✓' : '✗';
@@ -482,6 +503,14 @@
                         `;
                         tableBody.appendChild(row);
                     });
+                    
+                    const pagination = data.pagination;
+                    const startItem = ((pagination.current_page - 1) * pagination.per_page) + 1;
+                    const endItem = Math.min(startItem + pagination.per_page - 1, pagination.total_items);
+                    document.getElementById('pagination-info').textContent = 
+                        `${startItem}～${endItem}件 / 全${pagination.total_items}件`;
+                    
+                    updatePagination(userId, selectedMonth, projectId, pagination);
                 })
                 .catch(error => {
                     console.error('チケット詳細取得エラー:', error);
@@ -490,7 +519,89 @@
                     
                     const tableBody = document.getElementById('ticket-details-body');
                     tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">エラーが発生しました: ${error.message}</td></tr>`;
+                    document.getElementById('pagination-info').textContent = '';
+                    document.getElementById('ticket-pagination').innerHTML = '';
                 });
+        }
+        
+        function updatePagination(userId, selectedMonth, projectId, pagination) {
+            const paginationElement = document.getElementById('ticket-pagination');
+            paginationElement.innerHTML = '';
+            
+            const firstPageItem = document.createElement('li');
+            firstPageItem.className = `page-item ${pagination.current_page === 1 ? 'disabled' : ''}`;
+            firstPageItem.innerHTML = `<a class="page-link" href="#" aria-label="最初" ${pagination.current_page === 1 ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                <span aria-hidden="true">&laquo;</span>
+            </a>`;
+            if (pagination.current_page !== 1) {
+                firstPageItem.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadTicketDetails(userId, selectedMonth, projectId, 1, pagination.per_page);
+                });
+            }
+            paginationElement.appendChild(firstPageItem);
+            
+            const prevPageItem = document.createElement('li');
+            prevPageItem.className = `page-item ${pagination.current_page === 1 ? 'disabled' : ''}`;
+            prevPageItem.innerHTML = `<a class="page-link" href="#" aria-label="前" ${pagination.current_page === 1 ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                <span aria-hidden="true">&lt;</span>
+            </a>`;
+            if (pagination.current_page !== 1) {
+                prevPageItem.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadTicketDetails(userId, selectedMonth, projectId, pagination.current_page - 1, pagination.per_page);
+                });
+            }
+            paginationElement.appendChild(prevPageItem);
+            
+            const maxPagesToShow = 5;
+            let startPage = Math.max(1, pagination.current_page - Math.floor(maxPagesToShow / 2));
+            let endPage = Math.min(pagination.total_pages, startPage + maxPagesToShow - 1);
+            
+            if (endPage - startPage + 1 < maxPagesToShow && startPage > 1) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === pagination.current_page ? 'active' : ''}`;
+                pageItem.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                
+                if (i !== pagination.current_page) {
+                    pageItem.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        loadTicketDetails(userId, selectedMonth, projectId, i, pagination.per_page);
+                    });
+                }
+                
+                paginationElement.appendChild(pageItem);
+            }
+            
+            const nextPageItem = document.createElement('li');
+            nextPageItem.className = `page-item ${pagination.current_page === pagination.total_pages ? 'disabled' : ''}`;
+            nextPageItem.innerHTML = `<a class="page-link" href="#" aria-label="次" ${pagination.current_page === pagination.total_pages ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                <span aria-hidden="true">&gt;</span>
+            </a>`;
+            if (pagination.current_page !== pagination.total_pages) {
+                nextPageItem.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadTicketDetails(userId, selectedMonth, projectId, pagination.current_page + 1, pagination.per_page);
+                });
+            }
+            paginationElement.appendChild(nextPageItem);
+            
+            const lastPageItem = document.createElement('li');
+            lastPageItem.className = `page-item ${pagination.current_page === pagination.total_pages ? 'disabled' : ''}`;
+            lastPageItem.innerHTML = `<a class="page-link" href="#" aria-label="最後" ${pagination.current_page === pagination.total_pages ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                <span aria-hidden="true">&raquo;</span>
+            </a>`;
+            if (pagination.current_page !== pagination.total_pages) {
+                lastPageItem.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadTicketDetails(userId, selectedMonth, projectId, pagination.total_pages, pagination.per_page);
+                });
+            }
+            paginationElement.appendChild(lastPageItem);
         }
 
         function updateStatsTable(data) {
