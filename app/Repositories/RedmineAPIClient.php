@@ -317,8 +317,61 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             }
         }
 
+        $dateObj = Carbon::parse($startDate);
+        $monthStart = $dateObj->copy()->startOfMonth()->format('Y-m-d');
+        $monthEnd = $dateObj->copy()->endOfMonth()->format('Y-m-d');
+        
+        Log::info("期限が{$monthStart}から{$monthEnd}の期間のチケットを取得します");
+        
+        $dueTicketsParams = [
+            'due_date' => urlencode('><') . $monthStart . '|' . $monthEnd,
+            'assigned_to_id' => '*', // 担当者が設定されているチケットのみ
+            'status_id' => '*',
+            'limit' => 100,
+            'offset' => 0
+        ];
+        
+        if ($projectId) {
+            $dueTicketsParams['project_id'] = $projectId;
+        }
+        
+        $dueTickets = [];
+        $totalDueCount = 0;
+        $currentDueOffset = 0;
+        
+        do {
+            $dueTicketsParams['offset'] = $currentDueOffset;
+            
+            $dueTicketsResponse = $this->makeApiRequest('/issues.json', $dueTicketsParams);
+            
+            if (!$dueTicketsResponse || !isset($dueTicketsResponse['issues'])) {
+                Log::warning('オフセット' . $currentDueOffset . 'での期限付きチケットの取得に失敗しました');
+                break;
+            }
+            
+            $currentDueTickets = $dueTicketsResponse['issues'];
+            $dueTicketsCount = count($currentDueTickets);
+            
+            if ($dueTicketsCount === 0) {
+                break;
+            }
+            
+            $dueTickets = array_merge($dueTickets, $currentDueTickets);
+            
+            $totalDueCount += $dueTicketsCount;
+            $currentDueOffset += $dueTicketsParams['limit'];
+            
+            $totalDueAvailable = isset($dueTicketsResponse['total_count']) ? $dueTicketsResponse['total_count'] : 0;
+            
+            Log::info("{$dueTicketsCount}件の期限付きチケットを取得しました（オフセット: {$dueTicketsParams['offset']}, 合計: {$totalDueCount}, 利用可能な合計: {$totalDueAvailable}）");
+            
+        } while ($dueTicketsCount === $dueTicketsParams['limit']); // フルページを取得した場合は続行
+        
+        Log::info("ページネーション後、合計" . count($dueTickets) . "件の期限付きチケットを取得しました");
+
         $userTimeEntries = [];
         $issueIds = [];
+        $userDueTickets = []; // ユーザーごとの期限付きチケット
 
         foreach ($allTimeEntries as $entry) {
             $userId = $entry['user']['id'];
@@ -333,6 +386,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                     'working_hours' => 0,
                     'issues' => []
                 ];
+                
+                $userDueTickets[$userId] = [];
             }
 
             $userTimeEntries[$userId]['working_hours'] += $hours;
@@ -345,6 +400,30 @@ class RedmineAPIClient implements RedmineAPIClientInterface
 
             $userTimeEntries[$userId]['issues'][$issueId]['spent_hours'] += $hours;
             $issueIds[] = $issueId;
+        }
+        
+        foreach ($dueTickets as $ticket) {
+            if (isset($ticket['assigned_to']) && isset($ticket['assigned_to']['id'])) {
+                $userId = $ticket['assigned_to']['id'];
+                $issueId = $ticket['id'];
+                
+                if (!isset($userTimeEntries[$userId])) {
+                    $userTimeEntries[$userId] = [
+                        'user_id' => $userId,
+                        'user_name' => $ticket['assigned_to']['name'],
+                        'working_hours' => 0,
+                        'issues' => []
+                    ];
+                    
+                    $userDueTickets[$userId] = [];
+                }
+                
+                $userDueTickets[$userId][$issueId] = true;
+                
+                if (!in_array($issueId, $issueIds)) {
+                    $issueIds[] = $issueId;
+                }
+            }
         }
 
         $uniqueIssueIds = array_unique($issueIds);
@@ -395,27 +474,54 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             $completedTickets = 0;
             $consumedTickets = 0;
             $consumedEstimatedHours = 0;
+            $baseTickets = []; // 母数となるチケットのIDを保存
 
             foreach ($userData['issues'] as $issueId => $issueData) {
                 if (isset($issueDetails[$issueId])) {
-                    $totalTickets++;
+                    $baseTickets[$issueId] = true;
+                    
                     $issue = $issueDetails[$issueId];
-
+                    
                     if ($issue['is_completed_status']) {
                         $completedTickets++;
-
+                        
                         if ($issue['estimated_hours'] > 0 && $issueData['spent_hours'] <= $issue['estimated_hours']) {
                             $consumedTickets++;
                             $consumedEstimatedHours += $issue['estimated_hours'];
                         }
                     }
-
+                    
                     Log::info("チケット #{$issue['id']} ({$issue['subject']}): ステータス={$issue['status']}, 完了状態=" .
                         ($issue['is_completed_status'] ? 'はい' : 'いいえ') .
                         ", 予定工数={$issue['estimated_hours']}, 実績時間={$issueData['spent_hours']}");
                 }
             }
-
+            
+            if (isset($userDueTickets[$userId])) {
+                foreach ($userDueTickets[$userId] as $issueId => $value) {
+                    if (!isset($baseTickets[$issueId]) && isset($issueDetails[$issueId])) {
+                        $baseTickets[$issueId] = true;
+                        
+                        $issue = $issueDetails[$issueId];
+                        
+                        if ($issue['is_completed_status']) {
+                            $completedTickets++;
+                            
+                            if ($issue['estimated_hours'] > 0) {
+                                $consumedTickets++;
+                                $consumedEstimatedHours += $issue['estimated_hours'];
+                            }
+                        }
+                        
+                        Log::info("期限付きチケット #{$issue['id']} ({$issue['subject']}): ステータス={$issue['status']}, 完了状態=" .
+                            ($issue['is_completed_status'] ? 'はい' : 'いいえ') .
+                            ", 予定工数={$issue['estimated_hours']}");
+                    }
+                }
+            }
+            
+            $totalTickets = count($baseTickets);
+            
             $workingHours = $userData['working_hours'];
             
             $dateObj = Carbon::parse($startDate);
