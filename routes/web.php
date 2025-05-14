@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RedmineController;
+use App\Http\Controllers\UserSettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,3 +23,6 @@ Route::get('/api/monthly-stats', [RedmineController::class, 'getMonthlyStats'])-
 Route::get('/api/progress-rate-stats', [RedmineController::class, 'getProgressRateStats'])->name('api.progress-rate-stats');
 Route::get('/api/individual-progress-stats', [RedmineController::class, 'getIndividualProgressStats'])->name('api.individual-progress-stats');
 Route::get('/api/user-ticket-details', [RedmineController::class, 'getUserTicketDetails'])->name('api.user-ticket-details');
+
+Route::post('/api/user-settings', [UserSettingController::class, 'storeOrUpdate'])->name('api.user-settings.store');
+Route::get('/api/user-settings', [UserSettingController::class, 'getUserSettings'])->name('api.user-settings.get');
