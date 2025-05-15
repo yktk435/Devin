@@ -586,7 +586,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             }
             
             $adjustedMonthWorkingHours = $monthWorkingHours - $excludedHours;
-            $progressRate = ($adjustedMonthWorkingHours > 0) ? round(($completedEstimatedHours / $adjustedMonthWorkingHours) * 100) : 0;
+            $progressRate = ($adjustedMonthWorkingHours > 0) ? round(($consumedEstimatedHours / $adjustedMonthWorkingHours) * 100) : 0;
             $ticketCompletionRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
 
             $excludedTicketsArray = [];
@@ -603,7 +603,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'working_hours' => $workingHours, // 稼働時間
                 'excluded_hours' => $excludedHours, // 除外された時間（コアデイ、朝会、有給）
                 'excluded_tickets' => $excludedTicketsArray, // 除外されたチケット情報
-                'progress_rate' => $progressRate, // 進捗率（完了チケットの予定工数 / 月の稼働時間）
+                'progress_rate' => $progressRate, // 進捗率（消化チケットの予定工数 / 月の稼働時間）
                 'total_tickets' => $totalTickets, // 総チケット数
                 'completed_tickets' => $completedTickets, // 完了チケット数
                 'ticket_completion_rate' => $ticketCompletionRate, // チケット完了率
