@@ -247,6 +247,7 @@
                         updateProgressChart(data);
                         updateUserCards(data);
                         updateStatsTable(data);
+                        initSortableTables();
                     }
                 })
                 .catch(error => {
@@ -381,22 +382,22 @@
                             <div class="mt-2">
                                 <h6>除外チケット情報</h6>
                                 <div class="table-responsive">
-                                    <table class="table table-sm table-bordered">
+                                    <table class="table table-sm table-bordered sortable-table" id="excluded-tickets-table-${user.user_id}">
                                         <thead>
                                             <tr>
-                                                <th>ID</th>
-                                                <th>件名</th>
-                                                <th>時間</th>
-                                                <th>理由</th>
+                                                <th data-sort="number" style="cursor: pointer;">ID <i class="bi bi-arrow-down-up"></i></th>
+                                                <th data-sort="string" style="cursor: pointer;">件名 <i class="bi bi-arrow-down-up"></i></th>
+                                                <th data-sort="number" style="cursor: pointer;">時間 <i class="bi bi-arrow-down-up"></i></th>
+                                                <th data-sort="string" style="cursor: pointer;">理由 <i class="bi bi-arrow-down-up"></i></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${user.excluded_tickets.map(ticket => `
                                                 <tr>
-                                                    <td>${ticket.id}</td>
-                                                    <td>${ticket.subject}</td>
-                                                    <td>${parseFloat(ticket.hours).toFixed(2)}時間</td>
-                                                    <td>${ticket.reason}</td>
+                                                    <td data-value="${ticket.id}">${ticket.id}</td>
+                                                    <td data-value="${ticket.subject}">${ticket.subject}</td>
+                                                    <td data-value="${ticket.hours}">${parseFloat(ticket.hours).toFixed(2)}時間</td>
+                                                    <td data-value="${ticket.reason}">${ticket.reason}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -552,6 +553,51 @@
             .catch(error => {
                 document.getElementById('settings-error').classList.remove('d-none');
                 document.getElementById('settings-error').textContent = 'エラーが発生しました: ' + error.message;
+            });
+        }
+        
+        function initSortableTables() {
+            document.querySelectorAll('.sortable-table th').forEach(headerCell => {
+                headerCell.addEventListener('click', () => {
+                    const table = headerCell.closest('table');
+                    const headerIndex = Array.prototype.indexOf.call(headerCell.parentElement.children, headerCell);
+                    const currentIsAscending = headerCell.classList.contains('th-sort-asc');
+                    const sortType = headerCell.getAttribute('data-sort') || 'string';
+                    
+                    table.querySelectorAll('th').forEach(th => {
+                        th.classList.remove('th-sort-asc', 'th-sort-desc');
+                    });
+                    
+                    headerCell.classList.toggle('th-sort-asc', !currentIsAscending);
+                    headerCell.classList.toggle('th-sort-desc', currentIsAscending);
+                    
+                    const tableBody = table.querySelector('tbody');
+                    const rows = Array.from(tableBody.querySelectorAll('tr'));
+                    
+                    const sortedRows = rows.sort((rowA, rowB) => {
+                        const cellA = rowA.querySelectorAll('td')[headerIndex];
+                        const cellB = rowB.querySelectorAll('td')[headerIndex];
+                        
+                        const valueA = cellA.getAttribute('data-value');
+                        const valueB = cellB.getAttribute('data-value');
+                        
+                        if (sortType === 'number') {
+                            return currentIsAscending 
+                                ? parseFloat(valueB) - parseFloat(valueA) 
+                                : parseFloat(valueA) - parseFloat(valueB);
+                        } else {
+                            return currentIsAscending 
+                                ? valueB.localeCompare(valueA, 'ja') 
+                                : valueA.localeCompare(valueB, 'ja');
+                        }
+                    });
+                    
+                    while (tableBody.firstChild) {
+                        tableBody.removeChild(tableBody.firstChild);
+                    }
+                    
+                    tableBody.append(...sortedRows);
+                });
             });
         }
         
