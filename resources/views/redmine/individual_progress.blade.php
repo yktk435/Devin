@@ -546,7 +546,7 @@
                         document.getElementById('settings-success').classList.add('d-none');
                     }, 3000);
                     
-                    loadData();
+                    fetchAndUpdateData();
                 } else {
                     document.getElementById('settings-error').classList.remove('d-none');
                     document.getElementById('settings-error').textContent = data.message || 'エラーが発生しました';
