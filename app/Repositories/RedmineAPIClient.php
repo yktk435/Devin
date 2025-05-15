@@ -585,7 +585,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 }
             }
             
-            $progressRate = ($monthWorkingHours > 0) ? round(($completedEstimatedHours / $monthWorkingHours) * 100) : 0;
+            $adjustedMonthWorkingHours = $monthWorkingHours - $excludedHours;
+            $progressRate = ($adjustedMonthWorkingHours > 0) ? round(($completedEstimatedHours / $adjustedMonthWorkingHours) * 100) : 0;
             $ticketCompletionRate = ($totalTickets > 0) ? round(($completedTickets / $totalTickets) * 100) : 0;
 
             $excludedTicketsArray = [];

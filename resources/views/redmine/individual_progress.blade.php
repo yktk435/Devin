@@ -372,7 +372,9 @@
                                         <h6 class="card-title">進捗率の計算</h6>
                                         <p class="mb-1 small">完了チケット予定工数: ${parseFloat(user.completed_estimated_hours).toFixed(2)}時間</p>
                                         <p class="mb-1 small">月の稼働時間: ${parseFloat(user.month_working_hours).toFixed(2)}時間</p>
-                                        <p class="mb-1 small">計算式: (${parseFloat(user.completed_estimated_hours).toFixed(2)} / ${parseFloat(user.month_working_hours).toFixed(2)}) × 100 = ${user.progress_rate}%</p>
+                                        <p class="mb-1 small">除外時間: ${parseFloat(user.excluded_hours).toFixed(2)}時間</p>
+                                        <p class="mb-1 small">調整後稼働時間: ${parseFloat(user.month_working_hours - user.excluded_hours).toFixed(2)}時間</p>
+                                        <p class="mb-1 small">計算式: (${parseFloat(user.completed_estimated_hours).toFixed(2)} / ${parseFloat(user.month_working_hours - user.excluded_hours).toFixed(2)}) × 100 = ${user.progress_rate}%</p>
                                     </div>
                                 </div>
                             </div>
