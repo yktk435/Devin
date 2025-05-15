@@ -135,11 +135,13 @@ class RedmineService
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
+     * @param int $page
+     * @param int $perPage
      * @return array
      */
-    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null, $page = 1, $perPage = 10)
     {
-        return $this->redmineClient->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+        return $this->redmineClient->getUserTicketDetails($userId, $startDate, $endDate, $projectId, $page, $perPage);
     }
     
     /**

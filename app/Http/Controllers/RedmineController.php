@@ -177,30 +177,16 @@ class RedmineController extends Controller
         }
         
         try {
-            $allTicketDetails = $this->redmineService->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+            $result = $this->redmineService->getUserTicketDetails($userId, $startDate, $endDate, $projectId, $page, $perPage);
             
-            if (!$allTicketDetails) {
+            if (!$result) {
                 return response()->json([
                     'error' => true,
                     'message' => 'チケット詳細の取得に失敗しました。'
                 ], 500);
             }
             
-            $totalItems = count($allTicketDetails);
-            $totalPages = ceil($totalItems / $perPage);
-            
-            $offset = ($page - 1) * $perPage;
-            $currentPageItems = array_slice($allTicketDetails, $offset, $perPage);
-            
-            return response()->json([
-                'tickets' => $currentPageItems,
-                'pagination' => [
-                    'total_items' => $totalItems,
-                    'total_pages' => $totalPages,
-                    'current_page' => (int)$page,
-                    'per_page' => (int)$perPage
-                ]
-            ]);
+            return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => true,
