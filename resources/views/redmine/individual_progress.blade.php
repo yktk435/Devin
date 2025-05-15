@@ -344,8 +344,11 @@
 
                 card.innerHTML = `
                     <div class="card user-card" data-user-id="${user.user_id}" style="cursor: pointer;">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <h5>${user.user_name}</h5>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="showUserSettingsModal(event, ${user.user_id}, '${user.user_name}')">
+                                <i class="bi bi-gear"></i> 設定
+                            </button>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -414,9 +417,141 @@
                 
                 container.appendChild(card);
                 
-                card.querySelector('.card.user-card').addEventListener('click', function() {
+                card.querySelector('.card.user-card').addEventListener('click', function(e) {
+                    if (e.target.closest('.btn-outline-primary')) {
+                        return;
+                    }
                     showUserTicketDetails(user.user_id, user.user_name);
                 });
+            });
+        }
+        
+        function showUserSettingsModal(event, userId, userName) {
+            event.stopPropagation(); // カードのクリックイベントが発火しないようにする
+            
+            const existingModal = document.getElementById('userSettingsModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            const modalHtml = `
+                <div class="modal fade" id="userSettingsModal" tabindex="-1" aria-labelledby="userSettingsModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="userSettingsModalLabel">${userName}の設定</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="text-center my-3" id="settings-loading">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">読み込み中...</span>
+                                    </div>
+                                    <p class="mt-2">設定を取得中...</p>
+                                </div>
+                                <form id="userSettingsForm">
+                                    <input type="hidden" id="settings-user-id" value="${userId}">
+                                    <input type="hidden" id="settings-user-name" value="${userName}">
+                                    
+                                    <div class="mb-3">
+                                        <label for="monthly-working-hours" class="form-label">月の稼働時間（時間）</label>
+                                        <input type="number" class="form-control" id="monthly-working-hours" step="0.5" min="0">
+                                        <div class="form-text">月の稼働時間を入力してください。空白の場合は自動計算されます。</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="exclude-keywords" class="form-label">除外キーワード</label>
+                                        <textarea class="form-control" id="exclude-keywords" rows="3"></textarea>
+                                        <div class="form-text">除外するキーワードをカンマ区切りで入力してください。例: コアデイ,朝会,有給</div>
+                                    </div>
+                                    
+                                    <div id="settings-error" class="alert alert-danger d-none"></div>
+                                    <div id="settings-success" class="alert alert-success d-none"></div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                <button type="button" class="btn btn-primary" id="save-settings-btn">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            const modal = new bootstrap.Modal(document.getElementById('userSettingsModal'));
+            modal.show();
+            
+            fetchUserSettings(userId);
+            
+            document.getElementById('save-settings-btn').addEventListener('click', saveUserSettings);
+        }
+        
+        function fetchUserSettings(userId) {
+            document.getElementById('settings-loading').classList.remove('d-none');
+            document.getElementById('userSettingsForm').classList.add('d-none');
+            
+            fetch(`/api/user-settings?user_id=${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('settings-loading').classList.add('d-none');
+                    document.getElementById('userSettingsForm').classList.remove('d-none');
+                    
+                    if (!data.error && data.data) {
+                        document.getElementById('monthly-working-hours').value = data.data.monthly_working_hours || '';
+                        document.getElementById('exclude-keywords').value = data.data.exclude_keywords || '';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('settings-loading').classList.add('d-none');
+                    document.getElementById('userSettingsForm').classList.remove('d-none');
+                    document.getElementById('settings-error').classList.remove('d-none');
+                    document.getElementById('settings-error').textContent = 'エラーが発生しました: ' + error.message;
+                });
+        }
+        
+        function saveUserSettings() {
+            const userId = document.getElementById('settings-user-id').value;
+            const userName = document.getElementById('settings-user-name').value;
+            const monthlyWorkingHours = document.getElementById('monthly-working-hours').value;
+            const excludeKeywords = document.getElementById('exclude-keywords').value;
+            
+            document.getElementById('settings-error').classList.add('d-none');
+            document.getElementById('settings-success').classList.add('d-none');
+            
+            fetch('/api/user-settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    user_name: userName,
+                    monthly_working_hours: monthlyWorkingHours,
+                    exclude_keywords: excludeKeywords
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('settings-success').classList.remove('d-none');
+                    document.getElementById('settings-success').textContent = data.message;
+                    
+                    setTimeout(() => {
+                        document.getElementById('settings-success').classList.add('d-none');
+                    }, 3000);
+                    
+                    loadData();
+                } else {
+                    document.getElementById('settings-error').classList.remove('d-none');
+                    document.getElementById('settings-error').textContent = data.message || 'エラーが発生しました';
+                }
+            })
+            .catch(error => {
+                document.getElementById('settings-error').classList.remove('d-none');
+                document.getElementById('settings-error').textContent = 'エラーが発生しました: ' + error.message;
             });
         }
         

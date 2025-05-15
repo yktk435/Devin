@@ -373,7 +373,16 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         $issueIds = [];
         $userDueTickets = []; // ユーザーごとの期限付きチケット
 
-        $excludeKeywords = ['コアデイ', '朝会', '有給'];
+        $userSettings = [];
+        $userSettingsFromDB = \App\Models\UserSetting::all();
+        foreach ($userSettingsFromDB as $setting) {
+            $userSettings[$setting->user_id] = [
+                'monthly_working_hours' => $setting->monthly_working_hours,
+                'exclude_keywords' => $setting->exclude_keywords ? explode(',', $setting->exclude_keywords) : []
+            ];
+        }
+        
+        $defaultExcludeKeywords = ['コアデイ', '朝会', '有給'];
         
         foreach ($allTimeEntries as $entry) {
             $userId = $entry['user']['id'];
@@ -385,7 +394,13 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             
             $shouldExclude = false;
             $excludeReason = '';
-            foreach ($excludeKeywords as $keyword) {
+            
+            $userExcludeKeywords = $defaultExcludeKeywords;
+            if (isset($userSettings[$userId]) && !empty($userSettings[$userId]['exclude_keywords'])) {
+                $userExcludeKeywords = $userSettings[$userId]['exclude_keywords'];
+            }
+            
+            foreach ($userExcludeKeywords as $keyword) {
                 if (mb_stripos($comments, $keyword) !== false || mb_stripos($issueSubject, $keyword) !== false) {
                     $shouldExclude = true;
                     $excludeReason = $keyword;
@@ -561,7 +576,7 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             $excludedHours = isset($userData['excluded_hours']) ? $userData['excluded_hours'] : 0;
             
             $dateObj = Carbon::parse($startDate);
-            $monthWorkingHours = $this->calculateMonthWorkingHours($dateObj);
+            $monthWorkingHours = $this->calculateMonthWorkingHours($dateObj, $userData['user_id']);
             
             $completedEstimatedHours = 0;
             foreach ($userData['issues'] as $issueId => $issueData) {
@@ -605,8 +620,15 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      * @param Carbon $date
      * @return int
      */
-    protected function calculateMonthWorkingHours(Carbon $date)
+    protected function calculateMonthWorkingHours(Carbon $date, $userId = null)
     {
+        if ($userId) {
+            $userSetting = \App\Models\UserSetting::where('user_id', $userId)->first();
+            if ($userSetting && $userSetting->monthly_working_hours) {
+                return $userSetting->monthly_working_hours;
+            }
+        }
+        
         $startOfMonth = $date->copy()->startOfMonth();
         $endOfMonth = $date->copy()->endOfMonth();
         $currentDate = $startOfMonth->copy();
