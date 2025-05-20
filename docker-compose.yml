@@ -1,69 +1,55 @@
-version: '3'
-
 services:
-  # PHP Service
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - PLATFORM=linux/arm64
-    image: redmine-progress-tracker
-    container_name: redmine-app
-    platform: linux/arm64
-    restart: unless-stopped
-    tty: true
-    environment:
-      SERVICE_NAME: app
-      SERVICE_TAGS: dev
-    working_dir: /var/www/html
-    volumes:
-      - ./:/var/www/html
-      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
-    networks:
-      - app-network
+    mysql:
+        image: mysql:8.0
+        command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+        environment:
+            TZ: Japan
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: ${DB_DATABASE}
+        volumes:
+            - ./infra/docker/config/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf
+            - db-data:/var/lib/mysql:cached
+        networks:
+            default:
+                aliases:
+                    - mysql.${APP_PROJECT}.test
+    db-admin:
+        image: phpmyadmin/phpmyadmin
+        environment:
+            TZ: Japan
+            PMA_ARBITRARY: 1
+            PMA_HOST: mysql
+            PMA_USER: root
+            PMA_PASSWORD: root
+            VIRTUAL_HOST: pmd.${APP_PROJECT}.test
+        links:
+            - mysql
+    web:
+        build: ./infra/docker
+        environment:
+            TZ: Japan
+            VIRTUAL_HOST: ${APP_PROJECT}.test
+        volumes:
+            - ./:/var/www/html:cached
+            - ./infra/docker/config/apache2/sites-available:/etc/apache2/sites-available
+            # exclude volumes
+            - /var/www/html/.git
+        links:
+            - mysql
+    php-cli:
+        build: ./infra/docker
+        environment:
+            TZ: Japan
+            COMPOSER_MEMORY_LIMIT: -1
+        volumes:
+            - ./:/var/www/html
+        links:
+            - mysql
 
-  # Nginx Service
-  webserver:
-    image: nginx:alpine3.17
-    platform: linux/arm64
-    container_name: redmine-webserver
-    restart: unless-stopped
-    tty: true
-    ports:
-      - "8000:80"
-    volumes:
-      - ./:/var/www/html
-      - ./nginx/conf.d/:/etc/nginx/conf.d/
-    networks:
-      - app-network
-
-  # MySQL Service
-  db:
-    image: mysql:8.0
-    platform: linux/arm64
-    container_name: redmine-db
-    restart: unless-stopped
-    tty: true
-    ports:
-      - "3306:3306"
-    environment:
-      MYSQL_DATABASE: laravel
-      MYSQL_ROOT_PASSWORD: root
-      SERVICE_TAGS: dev
-      SERVICE_NAME: mysql
-    volumes:
-      - dbdata:/var/lib/mysql
-      - ./mysql/my.cnf:/etc/mysql/my.cnf
-    networks:
-      - app-network
-
-# Docker Networks
-networks:
-  app-network:
-    driver: bridge
-
-# Volumes
 volumes:
-  dbdata:
-    driver: local
+    db-data:
+
+networks:
+  default:
+    external: true
+    name: crewbit_network
