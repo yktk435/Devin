@@ -136,11 +136,12 @@ class RedmineService
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
+     * @param bool $forceRefresh APIから強制的に取得する場合はtrue
      * @return array
      */
-    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null, $forceRefresh = false)
     {
-        return $this->redmineClient->getUserTicketDetails($userId, $startDate, $endDate, $projectId);
+        return $this->redmineClient->getUserTicketDetails($userId, $startDate, $endDate, $projectId, $forceRefresh);
     }
     
     /**
