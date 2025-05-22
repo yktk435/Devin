@@ -613,7 +613,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'completed_tickets' => $completedTickets, // 完了チケット数
                 'ticket_completion_rate' => $ticketCompletionRate, // チケット完了率
                 'completed_estimated_hours' => $completedEstimatedHours, // 完了チケットの予定工数合計
-                'month_working_hours' => $monthWorkingHours // 月の稼働時間（土日祝日を除く）
+                'month_working_hours' => $monthWorkingHours, // 月の稼働時間（土日祝日を除く）
+                'ideal_progress_rate' => $this->calculateIdealProgressRate($startDate, $endDate) // 理想進捗率（現在日付に基づく）
             ];
         }
 
@@ -674,6 +675,95 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         }
         
         return $workingDays * 8;
+    }
+    
+    /**
+     * 現在日付までの稼働日数を計算（土日祝日を除いた日の合計）
+     *
+     * @param Carbon $startDate 開始日（通常は月初）
+     * @param Carbon $currentDate 現在日付
+     * @param array $holidays 祝日リスト
+     * @return int
+     */
+    protected function calculateWorkingDaysUpToDate(Carbon $startDate, Carbon $currentDate, array $holidays = [])
+    {
+        $workingDays = 0;
+        $iterateDate = $startDate->copy();
+        
+        while ($iterateDate->lte($currentDate)) {
+            $dayOfWeek = $iterateDate->dayOfWeek;
+            $dateString = $iterateDate->format('Y-m-d');
+            
+            if ($dayOfWeek !== 0 && $dayOfWeek !== 6 && !in_array($dateString, $holidays)) {
+                $workingDays++;
+            }
+            
+            $iterateDate->addDay();
+        }
+        
+        return $workingDays;
+    }
+    
+    /**
+     * 現在日付に基づく理想進捗率を計算
+     *
+     * @param string $startDate 開始日（月初）
+     * @param string $endDate 終了日（月末）
+     * @return int
+     */
+    protected function calculateIdealProgressRate($startDate, $endDate)
+    {
+        $startDateObj = Carbon::parse($startDate);
+        $endDateObj = Carbon::parse($endDate);
+        $currentDate = Carbon::now();
+        
+        if ($currentDate->lt($startDateObj)) {
+            return 0; // 開始日より前の場合は0%
+        }
+        
+        if ($currentDate->gt($endDateObj)) {
+            return 100; // 終了日より後の場合は100%
+        }
+        
+        $holidays = [
+            '2025-01-01', // 元日
+            '2025-01-13', // 成人の日
+            '2025-02-11', // 建国記念日
+            '2025-02-23', // 天皇誕生日
+            '2025-03-21', // 春分の日
+            '2025-04-29', // 昭和の日
+            '2025-05-03', // 憲法記念日
+            '2025-05-04', // みどりの日
+            '2025-05-05', // こどもの日
+            '2025-05-06', // 振替休日
+            '2025-07-21', // 海の日
+            '2025-08-11', // 山の日
+            '2025-09-15', // 敬老の日
+            '2025-09-23', // 秋分の日
+            '2025-10-13', // スポーツの日
+            '2025-11-03', // 文化の日
+            '2025-11-23', // 勤労感謝の日
+            '2025-12-23', // 天皇誕生日
+        ];
+        
+        $totalWorkingDays = $this->calculateWorkingDaysInPeriod($startDateObj, $endDateObj, $holidays);
+        
+        $currentWorkingDays = $this->calculateWorkingDaysUpToDate($startDateObj, $currentDate, $holidays);
+        
+        return ($totalWorkingDays > 0) ? round(($currentWorkingDays / $totalWorkingDays) * 100) : 0;
+    }
+    
+    /**
+     * 指定期間の稼働日数を計算（土日祝日を除いた日の合計）
+     *
+     * @param Carbon $startDate 開始日
+     * @param Carbon $endDate 終了日
+     * @param array $holidays 祝日リスト
+     * @return int
+     */
+    protected function calculateWorkingDaysInPeriod(Carbon $startDate, Carbon $endDate, array $holidays = [])
+    {
+        return $this->calculateWorkingDaysUpToDate($startDate, $endDate, $holidays);
     }
 
     /**
