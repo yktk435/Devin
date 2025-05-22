@@ -286,35 +286,40 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
         }
 
-        // 時間エントリをデータベースに保存
-        foreach ($allTimeEntries as $entry) {
-            try {
-                // エントリがすでにデータベースに存在するか確認
-                $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
+        if (empty($dbTimeEntries) || $forceRefresh) {
+            // APIから取得した場合のみ時間エントリをデータベースに保存
+            Log::info("APIから取得したデータをデータベースに保存します");
+            foreach ($allTimeEntries as $entry) {
+                try {
+                    // エントリがすでにデータベースに存在するか確認
+                    $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
 
-                if (!$existingEntry) {
-                    // 存在しない場合は新しいエントリを作成
-                    \App\Models\TimeEntry::create([
-                        'redmine_id' => $entry['id'],
-                        'user_id' => $entry['user']['id'],
-                        'user_name' => $entry['user']['name'],
-                        'issue_id' => $entry['issue']['id'],
-                        'issue_subject' => $entry['issue']['subject'] ?? null,
-                        'hours' => $entry['hours'],
-                        'spent_on' => $entry['spent_on'],
-                        'comments' => $entry['comments'] ?? null,
+                    if (!$existingEntry) {
+                        // 存在しない場合は新しいエントリを作成
+                        \App\Models\TimeEntry::create([
+                            'redmine_id' => $entry['id'],
+                            'user_id' => $entry['user']['id'],
+                            'user_name' => $entry['user']['name'],
+                            'issue_id' => $entry['issue']['id'],
+                            'issue_subject' => $entry['issue']['subject'] ?? null,
+                            'hours' => $entry['hours'],
+                            'spent_on' => $entry['spent_on'],
+                            'comments' => $entry['comments'] ?? null,
+                        ]);
+                    }
+
+                    // ユーザー情報をデータベースに保存
+                    $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
+
+                } catch (\Exception $e) {
+                    Log::error('時間エントリのデータベースへの保存に失敗しました', [
+                        'entry_id' => $entry['id'],
+                        'error' => $e->getMessage()
                     ]);
                 }
-
-                // ユーザー情報をデータベースに保存
-                $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
-
-            } catch (\Exception $e) {
-                Log::error('時間エントリのデータベースへの保存に失敗しました', [
-                    'entry_id' => $entry['id'],
-                    'error' => $e->getMessage()
-                ]);
             }
+        } else {
+            Log::info("データベースから取得したデータのため、保存処理をスキップします");
         }
 
         $dateObj = Carbon::parse($startDate);
@@ -882,7 +887,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
 
             Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
 
-            // 時間エントリをデータベースに保存
+            // APIから取得した場合のみ時間エントリをデータベースに保存
+            Log::info("APIから取得したデータをデータベースに保存します");
             foreach ($allTimeEntries as $entry) {
                 try {
                     // エントリがすでにデータベースに存在するか確認
