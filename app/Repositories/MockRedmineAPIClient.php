@@ -52,11 +52,47 @@ class MockRedmineAPIClient implements RedmineAPIClientInterface
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
+     * @param bool $forceRefresh
      * @return array
      */
-    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null, $forceRefresh = false)
     {
         return $this->getMockIndividualProgressStats($startDate, $endDate);
+    }
+    
+    /**
+     * Get user ticket details
+     * 
+     * @param int $userId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $projectId
+     * @param bool $forceRefresh
+     * @return array
+     */
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null, $forceRefresh = false)
+    {
+        $mockData = [];
+        
+        $ticketCount = rand(5, 15);
+        
+        for ($i = 1; $i <= $ticketCount; $i++) {
+            $isCompleted = (bool)rand(0, 1);
+            $estimatedHours = rand(1, 20);
+            $spentHours = $isCompleted ? rand(1, $estimatedHours * 1.5) : rand(0, $estimatedHours / 2);
+            
+            $mockData[] = [
+                'id' => $i + 1000,
+                'subject' => 'テストチケット ' . $i,
+                'status' => $isCompleted ? '完了' : '進行中',
+                'estimated_hours' => $estimatedHours,
+                'spent_hours' => $spentHours,
+                'is_completed' => $isCompleted,
+                'is_consumed' => $isCompleted && $spentHours <= $estimatedHours
+            ];
+        }
+        
+        return $mockData;
     }
 
     /**

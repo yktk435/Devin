@@ -279,6 +279,7 @@
             const labels = data.map(item => item.user_name);
             const progressRates = data.map(item => item.progress_rate);
             const completionRates = data.map(item => item.ticket_completion_rate);
+            const idealProgressRates = data.map(item => item.ideal_progress_rate);
 
             if (progressChart) {
                 progressChart.destroy();
@@ -302,6 +303,14 @@
                             backgroundColor: 'rgba(0, 123, 255, 0.7)',
                             borderColor: 'rgba(0, 123, 255, 1)',
                             borderWidth: 1
+                        },
+                        {
+                            label: '本来あるべき進捗率',
+                            data: idealProgressRates,
+                            backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                            borderColor: 'rgba(255, 193, 7, 1)',
+                            borderWidth: 1,
+                            type: 'line'
                         }
                     ]
                 },
@@ -357,7 +366,13 @@
                                     <div class="progress-rate ${progressClass} text-white p-2 rounded">${user.progress_rate}%</div>
                                     <div class="progress-label">進捗率</div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-6 text-center">
+                                    <div class="progress-rate bg-warning text-white p-2 rounded">${user.ideal_progress_rate}%</div>
+                                    <div class="progress-label">本来あるべき進捗率</div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-12">
                                     <p class="mb-1">完了時間: ${parseFloat(user.consumed_estimated_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">稼働時間: ${parseFloat(user.working_hours).toFixed(2)}時間</p>
                                     <p class="mb-1">完了チケット: ${user.completed_tickets}/${user.total_tickets}</p>
@@ -375,6 +390,7 @@
                                         <p class="mb-1 small">除外時間: ${parseFloat(user.excluded_hours).toFixed(2)}時間</p>
                                         <p class="mb-1 small">調整後稼働時間: ${parseFloat(user.month_working_hours - user.excluded_hours).toFixed(2)}時間</p>
                                         <p class="mb-1 small">計算式: (${parseFloat(user.completed_estimated_hours).toFixed(2)} / ${parseFloat(user.month_working_hours - user.excluded_hours).toFixed(2)}) × 100 = ${user.progress_rate}%</p>
+                                        <p class="mb-1 small">本来あるべき進捗率: ${user.ideal_progress_rate}%（現在日付に基づく）</p>
                                     </div>
                                 </div>
                             </div>

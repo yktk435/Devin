@@ -223,18 +223,18 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      * @param int|null $projectId
      * @return array|null
      */
-    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null, $forceRefresh = false)
     {
-        // まずデータベースから時間エントリを取得
-        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+        // forceRefreshがtrueの場合、またはデータベースにエントリがない場合はAPIから取得
+        $dbTimeEntries = $forceRefresh ? [] : $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
 
         // データベースにエントリがある場合はそれを使用
-        if (!empty($dbTimeEntries)) {
+        if (!empty($dbTimeEntries) && !$forceRefresh) {
             Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
             $allTimeEntries = $dbTimeEntries;
         } else {
-            // データベースにエントリがない場合はAPIから取得
-            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+            // データベースにエントリがない場合、または強制更新の場合はAPIから取得
+            Log::info(($forceRefresh ? "強制更新モードで" : "データベースに時間エントリが見つかりませんでした。") . "APIから{$startDate}から{$endDate}の期間のデータを取得します");
 
             $timeEntriesParams = [
                 'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
@@ -286,35 +286,40 @@ class RedmineAPIClient implements RedmineAPIClientInterface
             Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
         }
 
-        // 時間エントリをデータベースに保存
-        foreach ($allTimeEntries as $entry) {
-            try {
-                // エントリがすでにデータベースに存在するか確認
-                $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
+        if (empty($dbTimeEntries) || $forceRefresh) {
+            // APIから取得した場合のみ時間エントリをデータベースに保存
+            Log::info("APIから取得したデータをデータベースに保存します");
+            foreach ($allTimeEntries as $entry) {
+                try {
+                    // エントリがすでにデータベースに存在するか確認
+                    $existingEntry = \App\Models\TimeEntry::where('redmine_id', $entry['id'])->first();
 
-                if (!$existingEntry) {
-                    // 存在しない場合は新しいエントリを作成
-                    \App\Models\TimeEntry::create([
-                        'redmine_id' => $entry['id'],
-                        'user_id' => $entry['user']['id'],
-                        'user_name' => $entry['user']['name'],
-                        'issue_id' => $entry['issue']['id'],
-                        'issue_subject' => $entry['issue']['subject'] ?? null,
-                        'hours' => $entry['hours'],
-                        'spent_on' => $entry['spent_on'],
-                        'comments' => $entry['comments'] ?? null,
+                    if (!$existingEntry) {
+                        // 存在しない場合は新しいエントリを作成
+                        \App\Models\TimeEntry::create([
+                            'redmine_id' => $entry['id'],
+                            'user_id' => $entry['user']['id'],
+                            'user_name' => $entry['user']['name'],
+                            'issue_id' => $entry['issue']['id'],
+                            'issue_subject' => $entry['issue']['subject'] ?? null,
+                            'hours' => $entry['hours'],
+                            'spent_on' => $entry['spent_on'],
+                            'comments' => $entry['comments'] ?? null,
+                        ]);
+                    }
+
+                    // ユーザー情報をデータベースに保存
+                    $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
+
+                } catch (\Exception $e) {
+                    Log::error('時間エントリのデータベースへの保存に失敗しました', [
+                        'entry_id' => $entry['id'],
+                        'error' => $e->getMessage()
                     ]);
                 }
-
-                // ユーザー情報をデータベースに保存
-                $this->saveUserToDatabase($entry['user']['id'], $entry['user']['name']);
-
-            } catch (\Exception $e) {
-                Log::error('時間エントリのデータベースへの保存に失敗しました', [
-                    'entry_id' => $entry['id'],
-                    'error' => $e->getMessage()
-                ]);
             }
+        } else {
+            Log::info("データベースから取得したデータのため、保存処理をスキップします");
         }
 
         $dateObj = Carbon::parse($startDate);
@@ -608,7 +613,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
                 'completed_tickets' => $completedTickets, // 完了チケット数
                 'ticket_completion_rate' => $ticketCompletionRate, // チケット完了率
                 'completed_estimated_hours' => $completedEstimatedHours, // 完了チケットの予定工数合計
-                'month_working_hours' => $monthWorkingHours // 月の稼働時間（土日祝日を除く）
+                'month_working_hours' => $monthWorkingHours, // 月の稼働時間（土日祝日を除く）
+                'ideal_progress_rate' => $this->calculateIdealProgressRate($startDate, $endDate) // 理想進捗率（現在日付に基づく）
             ];
         }
 
@@ -669,6 +675,95 @@ class RedmineAPIClient implements RedmineAPIClientInterface
         }
         
         return $workingDays * 8;
+    }
+    
+    /**
+     * 現在日付までの稼働日数を計算（土日祝日を除いた日の合計）
+     *
+     * @param Carbon $startDate 開始日（通常は月初）
+     * @param Carbon $currentDate 現在日付
+     * @param array $holidays 祝日リスト
+     * @return int
+     */
+    protected function calculateWorkingDaysUpToDate(Carbon $startDate, Carbon $currentDate, array $holidays = [])
+    {
+        $workingDays = 0;
+        $iterateDate = $startDate->copy();
+        
+        while ($iterateDate->lte($currentDate)) {
+            $dayOfWeek = $iterateDate->dayOfWeek;
+            $dateString = $iterateDate->format('Y-m-d');
+            
+            if ($dayOfWeek !== 0 && $dayOfWeek !== 6 && !in_array($dateString, $holidays)) {
+                $workingDays++;
+            }
+            
+            $iterateDate->addDay();
+        }
+        
+        return $workingDays;
+    }
+    
+    /**
+     * 現在日付に基づく理想進捗率を計算
+     *
+     * @param string $startDate 開始日（月初）
+     * @param string $endDate 終了日（月末）
+     * @return int
+     */
+    protected function calculateIdealProgressRate($startDate, $endDate)
+    {
+        $startDateObj = Carbon::parse($startDate);
+        $endDateObj = Carbon::parse($endDate);
+        $currentDate = Carbon::now();
+        
+        if ($currentDate->lt($startDateObj)) {
+            return 0; // 開始日より前の場合は0%
+        }
+        
+        if ($currentDate->gt($endDateObj)) {
+            return 100; // 終了日より後の場合は100%
+        }
+        
+        $holidays = [
+            '2025-01-01', // 元日
+            '2025-01-13', // 成人の日
+            '2025-02-11', // 建国記念日
+            '2025-02-23', // 天皇誕生日
+            '2025-03-21', // 春分の日
+            '2025-04-29', // 昭和の日
+            '2025-05-03', // 憲法記念日
+            '2025-05-04', // みどりの日
+            '2025-05-05', // こどもの日
+            '2025-05-06', // 振替休日
+            '2025-07-21', // 海の日
+            '2025-08-11', // 山の日
+            '2025-09-15', // 敬老の日
+            '2025-09-23', // 秋分の日
+            '2025-10-13', // スポーツの日
+            '2025-11-03', // 文化の日
+            '2025-11-23', // 勤労感謝の日
+            '2025-12-23', // 天皇誕生日
+        ];
+        
+        $totalWorkingDays = $this->calculateWorkingDaysInPeriod($startDateObj, $endDateObj, $holidays);
+        
+        $currentWorkingDays = $this->calculateWorkingDaysUpToDate($startDateObj, $currentDate, $holidays);
+        
+        return ($totalWorkingDays > 0) ? round(($currentWorkingDays / $totalWorkingDays) * 100) : 0;
+    }
+    
+    /**
+     * 指定期間の稼働日数を計算（土日祝日を除いた日の合計）
+     *
+     * @param Carbon $startDate 開始日
+     * @param Carbon $endDate 終了日
+     * @param array $holidays 祝日リスト
+     * @return int
+     */
+    protected function calculateWorkingDaysInPeriod(Carbon $startDate, Carbon $endDate, array $holidays = [])
+    {
+        return $this->calculateWorkingDaysUpToDate($startDate, $endDate, $holidays);
     }
 
     /**
@@ -817,20 +912,20 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      * @param int|null $projectId
      * @return array|null
      */
-    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null, $forceRefresh = false)
     {
         Log::info("ユーザーID: {$userId}のチケット詳細を取得します（期間: {$startDate}から{$endDate}）");
 
-        // まずデータベースから時間エントリを取得
-        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+        // まずデータベースから時間エントリを取得（forceRefreshがtrueの場合は空配列を返す）
+        $dbTimeEntries = $forceRefresh ? [] : $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
 
         // データベースにエントリがある場合はそれを使用
-        if (!empty($dbTimeEntries)) {
+        if (!empty($dbTimeEntries) && !$forceRefresh) {
             Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
             $allTimeEntries = $dbTimeEntries;
         } else {
-            // データベースにエントリがない場合はAPIから取得
-            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+            // データベースにエントリがない場合、または強制更新の場合はAPIから取得
+            Log::info(($forceRefresh ? "強制更新モードで" : "データベースに時間エントリが見つかりませんでした。") . "APIから{$startDate}から{$endDate}の期間のデータを取得します");
 
             $timeEntriesParams = [
                 'user_id' => $userId,
@@ -882,7 +977,8 @@ class RedmineAPIClient implements RedmineAPIClientInterface
 
             Log::info("ページネーション後、合計" . count($allTimeEntries) . "件の時間エントリを取得しました");
 
-            // 時間エントリをデータベースに保存
+            // APIから取得した場合のみ時間エントリをデータベースに保存
+            Log::info("APIから取得したデータをデータベースに保存します");
             foreach ($allTimeEntries as $entry) {
                 try {
                     // エントリがすでにデータベースに存在するか確認
