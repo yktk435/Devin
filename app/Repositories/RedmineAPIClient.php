@@ -223,18 +223,18 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      * @param int|null $projectId
      * @return array|null
      */
-    public function getIndividualProgressStats($startDate, $endDate, $projectId = null)
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null, $forceRefresh = false)
     {
-        // まずデータベースから時間エントリを取得
-        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+        // forceRefreshがtrueの場合、またはデータベースにエントリがない場合はAPIから取得
+        $dbTimeEntries = $forceRefresh ? [] : $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
 
         // データベースにエントリがある場合はそれを使用
-        if (!empty($dbTimeEntries)) {
+        if (!empty($dbTimeEntries) && !$forceRefresh) {
             Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
             $allTimeEntries = $dbTimeEntries;
         } else {
-            // データベースにエントリがない場合はAPIから取得
-            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+            // データベースにエントリがない場合、または強制更新の場合はAPIから取得
+            Log::info(($forceRefresh ? "強制更新モードで" : "データベースに時間エントリが見つかりませんでした。") . "APIから{$startDate}から{$endDate}の期間のデータを取得します");
 
             $timeEntriesParams = [
                 'spent_on' => urlencode('><') . $startDate . '|' . $endDate,
@@ -817,20 +817,20 @@ class RedmineAPIClient implements RedmineAPIClientInterface
      * @param int|null $projectId
      * @return array|null
      */
-    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null)
+    public function getUserTicketDetails($userId, $startDate, $endDate, $projectId = null, $forceRefresh = false)
     {
         Log::info("ユーザーID: {$userId}のチケット詳細を取得します（期間: {$startDate}から{$endDate}）");
 
-        // まずデータベースから時間エントリを取得
-        $dbTimeEntries = $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
+        // まずデータベースから時間エントリを取得（forceRefreshがtrueの場合は空配列を返す）
+        $dbTimeEntries = $forceRefresh ? [] : $this->getTimeEntriesFromDatabase($startDate, $endDate, $projectId);
 
         // データベースにエントリがある場合はそれを使用
-        if (!empty($dbTimeEntries)) {
+        if (!empty($dbTimeEntries) && !$forceRefresh) {
             Log::info("データベースから{$startDate}から{$endDate}の期間の" . count($dbTimeEntries) . "件の時間エントリを取得しました");
             $allTimeEntries = $dbTimeEntries;
         } else {
-            // データベースにエントリがない場合はAPIから取得
-            Log::info("データベースに時間エントリが見つかりませんでした。APIから{$startDate}から{$endDate}の期間のデータを取得します");
+            // データベースにエントリがない場合、または強制更新の場合はAPIから取得
+            Log::info(($forceRefresh ? "強制更新モードで" : "データベースに時間エントリが見つかりませんでした。") . "APIから{$startDate}から{$endDate}の期間のデータを取得します");
 
             $timeEntriesParams = [
                 'user_id' => $userId,

@@ -12,7 +12,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('redmine:fetch-data --month=current')->dailyAt('03:00');
+        
+        $schedule->command('redmine:fetch-data --month=previous')->monthlyOn(1, '04:00');
     }
 
     /**

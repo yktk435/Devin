@@ -127,7 +127,7 @@ class RedmineController extends Controller
         }
 
         try {
-            $stats = $this->redmineService->getIndividualProgressStats($startDate, $endDate, $projectId);
+            $stats = $this->redmineService->getIndividualProgressStats($startDate, $endDate, $projectId, false);
             
             if (!$stats) {
                 return response()->json([

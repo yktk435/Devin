@@ -40,9 +40,10 @@ interface RedmineAPIClientInterface
      * @param string $startDate
      * @param string $endDate
      * @param int|null $projectId
+     * @param bool $forceRefresh
      * @return array
      */
-    public function getIndividualProgressStats($startDate, $endDate, $projectId = null);
+    public function getIndividualProgressStats($startDate, $endDate, $projectId = null, $forceRefresh = false);
     
     /**
      * Get available projects
