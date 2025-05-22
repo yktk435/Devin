@@ -100,7 +100,7 @@ class RedmineController extends Controller
         $currentMonth = Carbon::now();
         $startDate = $currentMonth->copy()->startOfMonth()->format('Y-m-d');
         $endDate = $currentMonth->copy()->endOfMonth()->format('Y-m-d');
-        $initialData = $this->redmineService->getIndividualProgressStats($startDate, $endDate);
+        $initialData = $this->redmineService->getIndividualProgressStats($startDate, $endDate, null, false);
         
         return view('redmine.individual_progress', compact('projects', 'initialData'));
     }
